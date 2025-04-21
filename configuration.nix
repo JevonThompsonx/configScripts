@@ -154,7 +154,9 @@
     mako            # Notification daemon (Wayland compatible)
     swaylock-effects # Screen locker (Wayland, with effects)
     swayidle        # Idle management daemon (for locking, sleep triggers)
-    grim            # Screenshot tool (backend)
+    hyprlock
+    hypridle
+grim            # Screenshot tool (backend)
     slurp           # Screenshot region selection (backend)
     grimblast       # Screenshot helper scripts (uses grim/slurp)
     wl-clipboard    # Wayland clipboard utilities (wl-copy/wl-paste)
