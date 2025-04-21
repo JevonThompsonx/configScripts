@@ -141,7 +141,6 @@ services.displayManager.sddm.enable = true;
   waybar     # Status bar
   wofi       # Application launcher
   mako       # Notification daemon
-  swww       # Wallpaper utility
   grim       # Screenshot tool
   slurp      # Screenshot region selection
   brightnessctl # Brightness control
@@ -150,6 +149,8 @@ services.displayManager.sddm.enable = true;
   inter
   dolphin
   wpaperd
+  blueman
+  nm
 ];
 
   # Enabling power management
