@@ -147,7 +147,9 @@ services.displayManager.sddm.enable = true;
   slurp      # Screenshot region selection
   brightnessctl # Brightness control
   pavucontrol   # Volume control GUI
-  ];
+  fira-code
+  inter
+];
 
   # Enabling power management
   services.power-profiles-daemon.enable = true
