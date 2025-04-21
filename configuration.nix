@@ -98,8 +98,7 @@ services.displayManager.sddm.enable = true;
     packages = with pkgs; [
       kdePackages.kate
      
-      spotify
-      spicetify-cli
+      tidal-hifi
       obsidian
       librewolf
       motrix
@@ -149,6 +148,8 @@ services.displayManager.sddm.enable = true;
   pavucontrol   # Volume control GUI
   fira-code
   inter
+  dolphin
+  wpaperd
 ];
 
   # Enabling power management
