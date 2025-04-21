@@ -1,7 +1,13 @@
+#!/bin/bash
+
 echo "Starting system config cloning"
 
-echo "Note this will only work if you've already run gh auth"
- 
+echo "Let's log into github"
+
+gh auth login
+
+echo "Let's start cloning!"
+
 gh repo clone nvim ~/config
 gh repo clone alacritty ~/config 
 gh repo clone fish ~/config
