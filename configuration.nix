@@ -151,6 +151,7 @@ services.displayManager.sddm.enable = true;
   wpaperd
   blueman
   nm
+  rofimoji
 ];
 
   # Enabling power management
