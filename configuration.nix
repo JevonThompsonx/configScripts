@@ -56,8 +56,12 @@ boot.kernelModules = [
   services.xserver.enable = true;
 
   # Enable the KDE Plasma Desktop Environment.
-  services.displayManager.sddm.enable = true;
-  services.desktopManager.plasma6.enable = true;
+  programs.hyprland.enable = true;
+  # Optional, hint electron apps to use wayland:
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
+}
+services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = false;
   # Configure keymap in X11
   services.xserver.xkb = {
     layout = "us";
@@ -134,6 +138,15 @@ boot.kernelModules = [
   libinput 
   tlp
   nodejs
+  hyprland
+  waybar     # Status bar
+  wofi       # Application launcher
+  mako       # Notification daemon
+  swww       # Wallpaper utility
+  grim       # Screenshot tool
+  slurp      # Screenshot region selection
+  brightnessctl # Brightness control
+  pavucontrol   # Volume control GUI
   ];
 
   # Enabling power management
