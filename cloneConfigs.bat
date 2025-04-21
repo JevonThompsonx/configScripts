@@ -1,6 +1,6 @@
 echo "Starting system config cloning"
 
-echo "Note this will only work if you've already run git auth"
+echo "Note this will only work if you've already run gh auth"
  
 gh repo clone nvim ~/config
 gh repo clone alacritty ~/config 
