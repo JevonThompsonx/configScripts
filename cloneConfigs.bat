@@ -9,3 +9,5 @@ gh repo clone foot ~/config
 gh repo clone WPs ~/Pictures
 gh repo clone variety ~/config
 gh repo clone fastfetch ~/config
+gh repo clone wofi ~/config
+gh repo clone waybar ~/config
