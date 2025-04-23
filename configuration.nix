@@ -10,20 +10,19 @@
       ./hardware-configuration.nix
     ];
 
-  # Select latest kernel packages (Consider pkgs.linuxPackages for stability unless needed)
+  # Consider using pkgs.linuxPackages (stable) unless _latest is specifically needed
   boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Boot kernel modules for fixing specific hardware (e.g., Lenovo Yoga 720 mouse)
+  # Check if these are truly needed beyond what hardware-configuration.nix provides.
+  boot.kernelModules = [
+    "i2c_hid_acpi"
+    "i2c_hid"
+    "osmouse" # Often less relevant now, test if needed
+  ];
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-
-  # Boot kernel modules for fixing specific hardware (e.g., Lenovo Yoga 720 mouse)
-  # Only include these if necessary for your hardware.
-  boot.kernelModules = [
-    "i2c_hid_acpi"
-    "i2c_hid"
-    "osmouse"
-  ];
 
   networking.hostName = "jevLenovoNixos"; # Define your hostname.
 
@@ -51,16 +50,60 @@
   services.xserver.enable = true;
 
   # Enable Hyprland Wayland compositor
-  programs.hyprland.enable = true;
+  programs.hyprland = {
+    enable = true;
+    # package = pkgs.hyprland; # Default
+    # Optionally enable XWayland HiDPI support if needed (usually automatic)
+   xwayland.enable = true;
+  };
+
+  # === Essential Wayland / Hyprland Settings ===
+  # Enable PipeWire for audio
+  hardware.pulseaudio.enable = false; # Ensure PulseAudio is disabled
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    # jack.enable = true; # Uncomment if you need JACK applications
+  };
+
+  # Enable touchpad support via libinput (used by Wayland compositors)
+  services.libinput.enable = true; # Changed from services.xserver.libinput.enable for clarity
+
+  # XDG Desktop Portal setup (CRUCIAL for Wayland integration)
+  xdg.portal = {
+    enable = true;
+    # Default backend: GTK (already installed via systemPackages)
+    # Extra backends: Hyprland is essential, KDE useful for Qt apps
+    extraPortals = with pkgs; [
+      xdg-desktop-portal-hyprland
+      xdg-desktop-portal-kde
+      # xdg-desktop-portal-gtk # Already added implicitly via systemPackages below if needed
+    ];
+    # Optional: Explicitly set default portals if needed, usually auto-detected
+    # config.common.default = "*"; # Or specify like ["hyprland" "gtk"]
+  };
+
+  # Use power-profiles-daemon for power management.
+  services.power-profiles-daemon.enable = true;
+
+  # Enable Bluetooth service
+  services.bluetooth.enable = true; # Enables the core bluetooth service
+  services.blueman.enable = true;  # Enables the Blueman Applet service
 
   # Hint electron apps to use wayland
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
-  # Enable the sddm display manager.
+  # Font configuration
+  fonts.fontconfig.enable = true;
+
+  # === Display Manager ===
   services.displayManager.sddm = {
     enable = true;
-    # Explicitly enable Wayland mode for SDDM itself (safer)
-    wayland.enable = true;
+    wayland.enable = true; # Run SDDM itself in Wayland mode
+    # theme = "your-sddm-theme"; # Optionally set SDDM theme
   };
 
   # Configure keymap in X11 (used by XWayland apps)
@@ -72,36 +115,26 @@
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
-  # Enable sound with pipewire.
-  hardware.pulseaudio.enable = false; # Ensure PulseAudio is disabled
-  security.rtkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-    # jack.enable = true; # Uncomment if you need JACK applications
-  };
-
-  # Enable touchpad support (libinput) used by Wayland.
-  services.xserver.libinput.enable = true;
-
-  # Define a user account. Don't forget to set a password with ‘passwd jevon’.
+  # === User Account ===
+  # Consider using Home Manager (https://nix-community.github.io/home-manager/)
+  # for managing user packages and dotfiles separately.
   users.users.jevon = {
     isNormalUser = true;
     description = "Jevon Thompson";
-    extraGroups = [ "networkmanager" "wheel" ]; # 'wheel' for sudo access
+    extraGroups = [ "networkmanager" "wheel" "audio" "video" "input" ]; # Added common groups
     packages = with pkgs; [
-      # User-specific applications (consider home-manager later)
+      # User-specific applications (consider moving to home-manager)
       kdePackages.kate # Text Editor
       tidal-hifi
       obsidian
       librewolf
       motrix
-      tailscale        # Tailscale CLI/service integration
+      # tailscale # Installed system-wide, CLI usable by user
       nextcloud-client
 
       # User theme preferences (installed system-wide but logically user-specific)
+      # These packages only provide the themes; applying them is done elsewhere
+      # (e.g., Hyprland config, nwg-look, qt5ct/kvantum)
       sweet-nova
       sweet-folders
       candy-icons
@@ -111,85 +144,95 @@
   # Enable the Tailscale service daemon
   services.tailscale.enable = true;
 
-  # Allow unfree packages (needed for tidal-hifi, potentially others)
+  # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
-  # List packages installed in system profile.
+  # === System Packages ===
   environment.systemPackages = with pkgs; [
-    # Essentials
-    neovim # Or your preferred CLI editor
+    # --- Essentials ---
+    neovim
     git
     wget
     curl
     unzip
-    ripgrep
-    fd
+    ripgrep # Fast search tool
+    fd      # Fast find alternative
 
-    # Hyprland Ecosystem & Utilities
-    waybar           # Status bar
-    wofi             # Application launcher
-    mako             # Notification daemon
-    hyprlock         # Screen locker (Hyprland native)
-    hypridle         # Idle management daemon (Hyprland native)
-    grim             # Screenshot tool (backend)
-    slurp            # Screenshot region selection (backend)
-    grimblast        # Screenshot helper scripts (uses grim/slurp)
-    wl-clipboard     # Wayland clipboard utilities (wl-copy/wl-paste)
-    clipman          # Clipboard manager (Wayland)
-    brightnessctl    # Brightness control CLI
-    pavucontrol      # Volume control GUI (works with Pipewire-Pulse)
-    wpaperd          # Wallpaper daemon (Wayland) - needs config
-    blueman          # Bluetooth manager GUI + applet backend
-    networkmanagerapplet # Provides GUI/applet for NetworkManager
-    playerctl        # Control media players via CLI (for media keys)
-    polkit_gnome     # Provides authentication agent for graphical actions (needed)
-    rofimoji         # Emoji picker for Rofi/Wofi
+    # --- Hyprland Ecosystem & Wayland Utilities ---
+    waybar              # Status bar
+    wofi                # Application launcher
+    mako                # Notification daemon
+    hyprlock            # Screen locker (Hyprland native)
+    hypridle            # Idle management daemon (Hyprland native)
+    grim                # Screenshot tool (backend)
+    slurp               # Screenshot region selection (backend)
+    grimblast           # Screenshot helper scripts (uses grim/slurp)
+    wl-clipboard        # Wayland clipboard utilities (wl-copy/wl-paste)
+    clipman             # Clipboard manager (Wayland - requires setup in Hyprland config)
+    brightnessctl       # Brightness control CLI
+    pavucontrol         # Volume control GUI (works with Pipewire-Pulse)
+    wpaperd             # Wallpaper daemon (Wayland - needs config)
+    blueman             # Bluetooth manager GUI + applet backend (service enabled above)
+    networkmanagerapplet # Provides GUI/applet for NetworkManager (service enabled above)
+    playerctl           # Control media players via CLI (for media keys)
+    polkit_gnome        # Provides authentication agent for graphical actions (needed by Hyprland)
+    rofimoji            # Emoji picker for Rofi/Wofi
 
-    # Terminals
-    foot             # Lightweight Wayland terminal
-    alacritty        # GPU-accelerated Wayland terminal
+    # --- Terminals ---
+    foot                # Lightweight Wayland terminal
+      alacritty         # GPU-accelerated Wayland terminal (pick one or have both)
 
-    # File Manager
-    dolphin          # KDE/Qt File Manager
+    # --- File Manager ---
+    dolphin             # KDE/Qt File Manager
 
-    # System Tools & Utilities
-    gh               # GitHub CLI
-    zoxide           # Smarter directory navigation
-    fastfetch        # System info fetcher
-    eza              # Modern 'ls' replacement
-    xdg-utils        # For xdg-open and mime types handling
+    # --- System Tools & Utilities ---
+    gh                  # GitHub CLI
+    zoxide              # Smarter directory navigation
+    fastfetch           # System info fetcher
+    eza                 # Modern 'ls' replacement
+    xdg-utils           # For xdg-open and mime types handling
+    tailscale           # Installs the CLI tool (service enabled above)
+    killall             # Utility to kill processes by name
 
-    # Theming & Fonts
-    nwg-look         # GTK theme switcher (Wayland compatible)
-    bibata-cursors   # Example cursor theme
-    # Fonts
-    fira-code        # Programming font with ligatures
-    inter            # Clean UI font
-    noto-fonts       # Standard UI fonts
-    noto-fonts-emoji # Emoji support
-    font-awesome     # Icon font (often used in waybar)
-    jetbrains-mono
-    (nerdfonts.override { fonts = [ "FiraCode" "JetBrainsMono" ]; }) # Popular icon fonts
+    # --- Theming & Fonts ---
+    nwg-look            # GTK theme switcher (Wayland compatible)
+    qt5ct               # Configuration tool for Qt5 applications styling
+    qt6ct               # Configuration tool for Qt6 applications styling
+    kvantum             # SVG-based theme engine for Qt applications
+    bibata-cursors      # Example cursor theme
+    # Fonts (ensure you have fonts needed by Waybar, etc.)
+    fira-code           # Programming font with ligatures
+    inter               # Clean UI font
+    noto-fonts          # Standard UI fonts
+    noto-fonts-cjk-sans # Optional: For CJK character support
+    noto-fonts-emoji    # Emoji support
+    font-awesome        # Icon font (often used in waybar)
+    jetbrains-mono      # Popular programming font
+    (nerdfonts.override { fonts = [ "FiraCode" "JetBrainsMono" "FontAwesome" ]; }) # Popular icon fonts
 
-    # Compatibility & Libraries
-    qt5.qtwayland    # Qt5 Wayland support
-    qt6.qtwayland    # Qt6 Wayland support
+    # --- Compatibility & Libraries ---
+    qt5.qtwayland       # Qt5 Wayland support
+    qt6.qtwayland       # Qt6 Wayland support
     libsForQt5.qt5.qtgraphicaleffects # Sometimes needed for Qt themes/effects
-    libnotify        # Library for sending desktop notifications (used by notify-send)
-    xdg-desktop-portal-gtk # Backend for XDG portals (file picker, etc.)
+    libnotify           # Library for sending desktop notifications (used by notify-send and mako)
+    # XDG Desktop Portal Backends (Ensure these align with xdg.portal.extraPortals)
+    xdg-desktop-portal-gtk
 
-    # Optional: Basic build tools (can be useful)
+    # --- Hardware Acceleration (Intel) ---
+    intel-media-driver  # VAAPI driver for Intel hardware video acceleration
+    # vulkan-tools      # Optional: For checking Vulkan support (vkinfo)
+    # intel-gpu-tools   # Optional: For Intel GPU diagnostics
+
+    # --- Optional: Basic build tools ---
     # gcc
     # gnumake
 
-    # Optional: KWallet integration if using Dolphin/KDE apps extensively
-    kdePackages.kwalletmanager
-    kdePackages.kwallet-pam
+    # --- Optional: KWallet integration ---
+    # kdePackages.kwalletmanager
+    # kdePackages.kwallet-pam
   ];
 
-  # Use power-profiles-daemon for power management.
-  services.power-profiles-daemon.enable = true;
-
+  # === Security ===
   # Enable the OpenSSH daemon.
   services.openssh = {
     enable = true;
@@ -205,12 +248,13 @@
     # allowedUDPPorts = [ ... ];
   };
 
+  # === System State ===
   # This value determines the NixOS release from which the default
   # settings for stateful data were taken. It‘s perfectly fine and recommended to leave
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option.
   # !!! IMPORTANT: Set this to the version you INITIALLY installed NixOS with !!!
-  # !!! Do NOT just change it to the latest version number unless you know what you are doing !!!
-  system.stateVersion = "24.11"; # Check this value carefully! Example: "23.11", "24.05" etc.
+  # !!! Or the version you consciously migrated state to. Check carefully! !!!
+  system.stateVersion = "24.11"; # Example: "23.11", "24.05". Verify this value!
 
 }
