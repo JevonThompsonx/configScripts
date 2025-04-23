@@ -166,9 +166,9 @@
     fira-code        # Programming font with ligatures
     inter            # Clean UI font
     noto-fonts       # Standard UI fonts
-    noto-fonts-cjk   # Fonts for CJK languages
     noto-fonts-emoji # Emoji support
     font-awesome     # Icon font (often used in waybar)
+    jetbrains-mono
     (nerdfonts.override { fonts = [ "FiraCode" "JetBrainsMono" ]; }) # Popular icon fonts
 
     # Compatibility & Libraries
