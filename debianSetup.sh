@@ -1,3 +1,5 @@
+#!bin/bash
+
 # update
 sudo apt update && sudo apt install extrepo -y
 #librewolf install
@@ -89,3 +91,8 @@ sudo apt install unzip
 curl -fsSL https://bun.sh/install | bash
 echo "Bun version:"
 bun -v
+
+git clone https://github.com/JevonThompsonx/nixos/blob/2ddd06499238d3e92ad0441a66e119a23a07e77f/cloneConfigs.sh
+
+chmod +x cloneConfigs.sh
+./cloneConfigs.sh
