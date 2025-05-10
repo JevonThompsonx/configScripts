@@ -1,5 +1,10 @@
 #!bin/bash
 
+# source update
+
+git clone https://github.com/JevonThompsonx/configScripts/blob/f0d81b17e454c5e20e0f3a62ba71164e1d4e75b9/update-debian-sources.sh
+./update-debian-sources.sh
+
 # update
 sudo apt update && sudo apt install extrepo -y
 #librewolf install
