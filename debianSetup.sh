@@ -78,8 +78,8 @@ cd ~/Apps
 wget https://github.com/nextcloud-releases/desktop/releases/download/v3.16.4/Nextcloud-3.16.4-x86_64.AppImage
 
 # golang install 
-git clone https://github.com/JevonThompsonx/configScripts/blob/2701e6781897d7ef6fcc5510543284072b3b9128/goLangInstall.sh
-./goLangInstall.sh
+wget https://go.dev/dl/go1.22.2.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz
 
 nano ~/.config/fish/config.fish
 ## add to config:
