@@ -1,3 +1,3 @@
 # Configs
 
-My config files 
+My setup for debian distro to make my life easy
