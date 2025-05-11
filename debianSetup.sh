@@ -10,6 +10,7 @@ sudo apt update && sudo apt install extrepo -y
 #librewolf install
 sudo extrepo enable librewolf
 
+
 sudo apt update && sudo apt install librewolf -y
 
 #installs available via deb repo 
@@ -18,6 +19,9 @@ sudo apt install curl gh neovim nodejs npm zoxide fastfetch foot alacritty fish
 
 # eza install
 sudo apt install -y gpg
+
+
+
 
 sudo mkdir -p /etc/apt/keyrings
 wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
@@ -97,7 +101,35 @@ curl -fsSL https://bun.sh/install | bash
 echo "Bun version:"
 bun -v
 
-git clone https://github.com/JevonThompsonx/nixos/blob/2ddd06499238d3e92ad0441a66e119a23a07e77f/cloneConfigs.sh
+#neovim tools
 
+sudo apt install ripgrep
+npm install -g neovim
+sudo apt install python3-pynvim
+
+## treesitter
+npm install -g tree-sitter-cli
+
+# nvim languages 
+## cargo
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+## luarocks
+sudo apt install luarocks
+## ruby
+sudo apt install ruby-full
+## php
+sudo apt install php
+## java
+sudo apt install openjdk-17-jdk
+## tailwindcss
+npm install -g @tailwindcss/language-server
+## clipboard 
+sudo apt install xsel
+sudo apt install xclip
+
+
+cd ~ 
+git clone https://github.com/JevonThompsonx/configScripts.git
+cd ~/configScripts
 chmod +x cloneConfigs.sh
 ./cloneConfigs.sh
