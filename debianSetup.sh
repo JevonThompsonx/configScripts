@@ -116,6 +116,8 @@ npm install -g @tailwindcss/language-server
 sudo apt install xsel
 sudo apt install xclip
 
+cargo install exa 
+
 cd ~/configScripts
 ./clone*.sh
 
