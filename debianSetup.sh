@@ -1,5 +1,3 @@
-#!bin/bash
-
 # source update
 sudo apt update && sudo apt install extrepo -y
 sudo apt install git
@@ -93,11 +91,11 @@ bun -v
 #neovim tools
 
 sudo apt install ripgrep
-npm install -g neovim
+sudo npm install -g neovim
 sudo apt install python3-pynvim
 
 ## treesitter
-npm install -g tree-sitter-cli
+sudo npm install -g tree-sitter-cli
 
 # nvim languages 
 ## cargo
@@ -111,7 +109,7 @@ sudo apt install php
 ## java
 sudo apt install openjdk-17-jdk
 ## tailwindcss
-npm install -g @tailwindcss/language-server
+sudo npm install -g @tailwindcss/language-server
 ## clipboard 
 sudo apt install xsel
 sudo apt install xclip
