@@ -1,15 +1,19 @@
 #!bin/bash
 
 # source update
+sudo apt update && sudo apt install extrepo -y
+sudo apt install git
 
-git clone https://github.com/JevonThompsonx/configScripts/blob/f0d81b17e454c5e20e0f3a62ba71164e1d4e75b9/update-debian-sources.sh
-./update-debian-sources.sh
+
+cd ~
+git clone https://github.com/JevonThompsonx/configScripts.git
+chmod +x ~/configScripts/*.sh
+./update-debian*.sh
 
 # update
 sudo apt update && sudo apt install extrepo -y
 #librewolf install
 sudo extrepo enable librewolf
-
 
 sudo apt update && sudo apt install librewolf -y
 
@@ -19,9 +23,6 @@ sudo apt install curl gh neovim nodejs npm zoxide fastfetch foot alacritty fish
 
 # eza install
 sudo apt install -y gpg
-
-
-
 
 sudo mkdir -p /etc/apt/keyrings
 wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
@@ -53,7 +54,6 @@ sudo apt-get update && sudo apt-get install tailscale
 # Start Tailscale!
 sudo tailscale up
 
-
 gh auth login
 
 sudo add-apt-repository ppa:variety/stable
@@ -72,8 +72,7 @@ sudo apt install python3-pip python3-venv
 # App image launcher 
 
 wget https://github.com/TheAssassin/AppImageLauncher/releases/download/v2.2.0/appimagelauncher_2.2.0-travis995.0f91801.bionic_amd64.deb
-
-sudo apt install ./ap*.deb
+./appim*.deb
 
 # nextcloud app image
 mkdir ~/Apps
@@ -82,18 +81,8 @@ cd ~/Apps
 wget https://github.com/nextcloud-releases/desktop/releases/download/v3.16.4/Nextcloud-3.16.4-x86_64.AppImage
 
 # golang install 
-wget https://go.dev/dl/go1.22.2.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz
 
-nano ~/.config/fish/config.fish
-## add to config:
-set -gx PATH /usr/local/go/bin $PATH
-set -gx GOPATH $HOME/go
-set -gx PATH $GOPATH/bin $PATH
-
-## commands after adding
-source ~/.config/fish/config.fish
-go version
+sudo apt install golang-go
 
 # bun install
 sudo apt install unzip
@@ -127,9 +116,9 @@ npm install -g @tailwindcss/language-server
 sudo apt install xsel
 sudo apt install xclip
 
-
-cd ~ 
-git clone https://github.com/JevonThompsonx/configScripts.git
 cd ~/configScripts
-chmod +x cloneConfigs.sh
-./cloneConfigs.sh
+./clone*.sh
+
+# launch neovim to update
+
+nvim
