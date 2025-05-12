@@ -94,6 +94,8 @@ sudo apt install ripgrep
 sudo npm install -g neovim
 sudo apt install python3-pynvim
 sudo apt install lazygit
+cargo install selene
+
 ## treesitter
 sudo npm install -g tree-sitter-cli
 
