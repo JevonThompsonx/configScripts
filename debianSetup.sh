@@ -116,6 +116,9 @@ sudo npm install -g @tailwindcss/language-server
 sudo apt install xsel
 sudo apt install xclip
 
+# install calendar client 
+sudo apt install gnome-calendar
+
 cargo install exa 
 
 cd ~/configScripts
