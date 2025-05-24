@@ -37,8 +37,8 @@ sudo apt install ./obsidian*.deb
 wget https://github.com/localsend/localsend/releases/download/v1.17.0/LocalSend-1.17.0-linux-x86-64.deb
 
 sudo apt install ./Local*.deb
-
-sudo apt install ./Free*.deb
+wget https://files2.freedownloadmanager.org/6/latest/freedownloadmanager.deb
+sudo apt install ./free*.deb
 
 # Tailscale install
 
