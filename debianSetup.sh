@@ -15,6 +15,11 @@ sudo extrepo enable librewolf
 
 sudo apt update && sudo apt install librewolf -y
 
+# webapp manager install 
+
+wget http://packages.linuxmint.com/pool/main/w/webapp-manager/webapp-manager_1.4.0_all.deb
+sudo apt install ./web*.deb
+
 #installs available via deb repo 
 
 sudo apt install curl gh neovim nodejs npm zoxide fastfetch foot alacritty fish
