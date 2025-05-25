@@ -134,5 +134,6 @@ cd ~/configScripts
 ./clone*.sh
 
 # launch neovim to update
-
+fish 
+set -U fish_user_paths /opt/zig $fish_user_paths
 nvim
