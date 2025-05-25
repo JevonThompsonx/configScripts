@@ -2,6 +2,10 @@
 sudo apt update && sudo apt install extrepo -y
 sudo apt install git
 
+# zig install for ghostty 
+
+wget https://ziglang.org/builds/zig-x86_64-linux-0.15.0-dev.631+9a3540d61.tar.xz
+sudo mv zig-* /opt/zig
 
 cd ~
 git clone https://github.com/JevonThompsonx/configScripts.git
