@@ -2,13 +2,13 @@
 sudo apt update && sudo apt install extrepo -y
 sudo apt install git
 
-# zig install for ghostty 
-
 
 cd ~
 git clone https://github.com/JevonThompsonx/configScripts.git
 chmod +x ~/configScripts/*.sh
-./update-debian*.sh
+~/update-debian*.sh
+# ghostty terminal install
+~/zig*.sh
 
 # update
 sudo apt update && sudo apt install extrepo -y
