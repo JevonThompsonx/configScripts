@@ -1,7 +1,10 @@
 # source update
-sudo apt update && sudo apt install extrepo -y
-sudo apt install git
 
+echo "updating..."
+sudo apt update && sudo apt install extrepo -y
+echo "git install"
+sudo apt install git
+echo "installing config scripts just in case" 
 
 cd ~
 git clone https://github.com/JevonThompsonx/configScripts.git
@@ -11,22 +14,28 @@ chmod +x ~/configScripts/*.sh
 ~/zig*.sh
 
 # update
+echo "updating" 
 sudo apt update && sudo apt install extrepo -y
-#librewolf install
+echo "librewolf install"
 sudo extrepo enable librewolf
 
 sudo apt update && sudo apt install librewolf -y
 
-# webapp manager install 
+echo "webapp manager install"
 
 wget http://packages.linuxmint.com/pool/main/w/webapp-manager/webapp-manager_1.4.0_all.deb
 sudo apt install ./web*.deb
 
-#installs available via deb repo 
+echo "installs available packages via deb repo"
 
 sudo apt install curl gh neovim nodejs npm zoxide fastfetch foot alacritty fish
 
-# eza install
+# alacritty theme
+echo "applying alacritty theme"
+mkdir -p ~/.config/alacritty/themes
+git clone https://github.com/alacritty/alacritty-theme ~/.config/alacritty/themes
+
+echo " eza install..."
 sudo apt install -y gpg
 
 sudo mkdir -p /etc/apt/keyrings
@@ -36,6 +45,7 @@ sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.lis
 sudo apt update
 sudo apt install -y eza
 
+echo "obsidian,localsend and freetube..."
 wget https://github.com/obsidianmd/obsidian-releases/releases/download/v1.  
 8.10/obsidian_1.8.10_amd64.deb
 
@@ -48,6 +58,7 @@ wget https://files2.freedownloadmanager.org/6/latest/freedownloadmanager.deb
 sudo apt install ./free*.deb
 
 # Tailscale install
+echo "tailscale..."
 
 # Add Tailscale's GPG key
 sudo mkdir -p --mode=0755 /usr/share/keyrings
@@ -59,6 +70,7 @@ sudo apt-get update && sudo apt-get install tailscale
 # Start Tailscale!
 sudo tailscale up
 
+echo "let's get those config repos baybee"
 gh auth login
 
 sudo add-apt-repository ppa:variety/stable
@@ -78,7 +90,7 @@ sudo apt install python3-pip python3-venv
 
 wget https://github.com/TheAssassin/AppImageLauncher/releases/download/v2.2.0/appimagelauncher_2.2.0-travis995.0f91801.bionic_amd64.deb
 ./appim*.deb
-
+echo "nextcloud"
 # nextcloud app image
 mkdir ~/Apps
 cd ~/Apps 
@@ -96,7 +108,7 @@ echo "Bun version:"
 bun -v
 
 #neovim tools
-
+echo "neovim setup"
 sudo apt install ripgrep
 sudo npm install -g neovim
 sudo apt install python3-pynvim
@@ -123,6 +135,7 @@ sudo npm install -g @tailwindcss/language-server
 sudo apt install xsel
 sudo apt install xclip
 
+echo "calendar software"
 # install calendar client 
 sudo apt install gnome-calendar
 
