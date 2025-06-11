@@ -2,7 +2,7 @@
 
 echo "Updating system and installing base tools..."
 sudo pacman -Syu 
-sudo pacman -S git curl neovim nodejs npm fish unzip ripgrep python-pip python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd
+sudo pacman -S git curl neovim nodejs npm fish unzip ripgrep python-pip python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
 
 echo "Installing AUR helper (yay)..."
 if ! command -v yay &> /dev/null; then
