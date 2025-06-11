@@ -1,15 +1,15 @@
 #!/bin/bash
 
 echo "Updating system and installing base tools..."
-sudo pacman -Syu --noconfirm
-sudo pacman -S --noconfirm git curl neovim nodejs npm fish unzip ripgrep python-pip python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd
+sudo pacman -Syu 
+sudo pacman -S git curl neovim nodejs npm fish unzip ripgrep python-pip python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd
 
 echo "Installing AUR helper (yay)..."
 if ! command -v yay &> /dev/null; then
   cd ~
   git clone https://aur.archlinux.org/yay.git
   cd yay
-  makepkg -si --noconfirm
+  makepkg -si 
 fi
 
 echo "Cloning config scripts..."
@@ -28,18 +28,18 @@ sudo systemctl enable --now tailscaled
 sudo tailscale up
 
 echo "Authenticating GitHub CLI..."
-yay -S --noconfirm github-cli
+yay -S  github-cli
 gh auth login
 
 echo "Installing Variety wallpaper manager..."
-yay -S --noconfirm variety wpaperd
+yay -S  variety wpaperd
 
 echo "Installing FiraCode font..."
 
 fc-cache -fv
 
 echo "Installing AppImageLauncher..."
-yay -S --noconfirm appimagelauncher
+yay -S  appimagelauncher
 
 echo "Setting up Nextcloud AppImage..."
 mkdir -p ~/Apps
@@ -48,7 +48,7 @@ wget https://github.com/nextcloud-releases/desktop/releases/download/v3.16.5/Nex
 chmod +x Nextcloud*.AppImage
 
 echo "Installing Go (golang)..."
-sudo pacman -S --noconfirm go
+sudo pacman -S  go
 
 echo "Installing Bun..."
 curl -fsSL https://bun.sh/install | bash
@@ -68,14 +68,14 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # LuaRocks
 # Ruby, php, java
-sudo pacman -S --noconfirm ruby php jdk17-openjdk luarocks xsel xclip
+sudo pacman -S  ruby php jdk17-openjdk luarocks xsel xclip
 
 # TailwindCSS LSP
 sudo npm install -g @tailwindcss/language-server
 
 
 echo "Installing Calendar Client..."
-sudo pacman -S --noconfirm gnome-calendar
+sudo pacman -S  gnome-calendar
 
 echo "Installing EXA replacement (already installed: eza)..."
 
