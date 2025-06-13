@@ -86,5 +86,12 @@ echo "Finalizing Config Setup..."
 cd ~/configScripts
 ./clone*.sh || echo "No clone*.sh script found."
 
+yay -Syu cargo 
+yay -Syu atuin
+atuin login -u Jevonx
+atuin sync
+
 echo "Launching fish and Neovim..."
-fish -c "set -U fish_user_paths /opt/zig \$fish_user_paths; nvim"
+fish -c "set -U fish_user_paths /opt/zig \$fish_user_paths"
+
+nvim
