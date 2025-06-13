@@ -13,6 +13,10 @@ chmod +x ~/configScripts/*.sh
 # ghostty terminal install
 ~/zig*.sh
 
+## cli helper atuin 
+sudo apt install cargo 
+
+sudo apt install atuin
 # update
 echo "updating" 
 sudo apt update && sudo apt install extrepo -y
