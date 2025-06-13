@@ -13,10 +13,7 @@ chmod +x ~/configScripts/*.sh
 # ghostty terminal install
 ~/zig*.sh
 
-## cli helper atuin 
-sudo apt install cargo 
 
-sudo apt install atuin
 # update
 echo "updating" 
 sudo apt update && sudo apt install extrepo -y
@@ -148,6 +145,12 @@ cargo install exa
 cd ~/configScripts
 ./clone*.sh
 
+## atuin login 
+
+sudo apt install cargo 
+sudo apt install atuin
+atuin login -u Jevonx
+atuin sync
 # launch neovim to update
 fish 
 set -U fish_user_paths /opt/zig $fish_user_paths
