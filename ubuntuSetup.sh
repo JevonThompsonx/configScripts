@@ -3,7 +3,7 @@
 # Ensure the script exits if any command fails
 set -e
 
-echo "Starting Ubuntu server setup script..."
+echo "Starting Ubuntu server setup script (main).."
 
 # Basic system update and essential tools
 echo "Updating package list and installing core utilities..."
@@ -11,7 +11,7 @@ sudo apt update
 sudo apt install -y extrepo git curl wget gpg software-properties-common apt-transport-https ca-certificates unzip
 
 # Clone config scripts
-echo "Cloning config scripts..."
+echo "Ensuring clean configScripts directory and cloning..."
 # Check if configScripts directory exists and remove it to avoid "fatal: destination path 'configScripts' already exists"
 if [ -d "$HOME/configScripts" ]; then
     echo "Existing configScripts directory found. Removing it..."
@@ -21,27 +21,31 @@ cd ~
 git clone https://github.com/JevonThompsonx/configScripts.git
 chmod +x ~/configScripts/*.sh
 
+# IMPORTANT: Ensure these scripts (ubuntuSetup.sh, zigGhosttyInstall.sh)
+# DO NOT call this main setup script again, or any part of it that
+# would lead to a loop (e.g., cloning configScripts or re-running apt installs).
+# They should contain ONLY their specific, modularized setup steps.
+
 # Execute Ubuntu-specific setup script from your configScripts repository
-echo "Running initial Ubuntu setup script from configScripts..."
-# Assuming 'ubuntuSetup.sh' handles initial system configurations for Ubuntu
+echo "Running initial Ubuntu-specific setup script from configScripts (if present)..."
 if [ -f "$HOME/configScripts/ubuntuSetup.sh" ]; then
+    echo "Executing ~/configScripts/ubuntuSetup.sh..."
     "$HOME/configScripts/ubuntuSetup.sh"
 else
-    echo "Warning: ubuntuSetup.sh not found in configScripts. Skipping Ubuntu-specific setup."
+    echo "Warning: ~/configScripts/ubuntuSetup.sh not found. Skipping Ubuntu-specific configuration from your repo."
 fi
 
 # Install Ghostty terminal (assuming zigGhosttyInstall.sh handles dependencies like Zig)
-echo "Installing Ghostty terminal and its dependencies (via zigGhosttyInstall.sh)..."
-# Make sure zigGhosttyInstall.sh properly installs Zig and Ghostty for Ubuntu server environment
+echo "Installing Ghostty terminal and its dependencies (via zigGhosttyInstall.sh, if present)..."
 if [ -f "$HOME/configScripts/zigGhosttyInstall.sh" ]; then
+    echo "Executing ~/configScripts/zigGhosttyInstall.sh..."
     "$HOME/configScripts/zigGhosttyInstall.sh"
 else
-    echo "Warning: zigGhosttyInstall.sh not found in configScripts. Skipping Ghostty installation."
+    echo "Warning: ~/configScripts/zigGhosttyInstall.sh not found. Skipping Ghostty installation."
 fi
 
-
 # Install common development and system packages (non-GUI)
-echo "Installing available packages via APT (non-GUI)..."
+echo "Installing core development and terminal utilities..."
 sudo apt install -y gh neovim nodejs npm zoxide fastfetch foot fish
 
 # Eza install
@@ -50,23 +54,23 @@ sudo mkdir -p /etc/apt/keyrings
 wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
 echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
 sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
-sudo apt update
+sudo apt update # Update after adding Eza repo
 sudo apt install -y eza
 
 # Tailscale install
 echo "Installing Tailscale..."
 sudo mkdir -p --mode=0755 /usr/share/keyrings
 curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-# Using 'jammy' for Ubuntu 22.04 LTS. Adjust if using a different Ubuntu version.
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
-sudo apt update
+# Based on your log, you are running Ubuntu "noble".
+# We need to explicitly use the noble repository for Tailscale.
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+sudo apt update # Update after adding Tailscale repo
 sudo apt install -y tailscale
 sudo tailscale up
 
 # GitHub CLI authentication
-echo "Authenticating GitHub CLI..."
-# This step requires user interaction. For a truly automated server setup,
-# you would need to pre-configure GitHub CLI with a token.
+echo "Authenticating GitHub CLI (requires user interaction)..."
+# For a truly automated server setup, you would need to pre-configure GitHub CLI with a token.
 gh auth login
 
 # Fira Code Fonts (useful for terminals even on servers, for better readability)
@@ -97,6 +101,7 @@ echo "Setting up Neovim tools..."
 sudo apt install -y ripgrep lazygit
 sudo npm install -g neovim tree-sitter-cli
 # Ensure Rust/Cargo is installed before attempting to install Rust-based tools
+# The Rust installer below will handle cargo.
 cargo install selene # This requires Rust/Cargo to be installed first.
 
 # Neovim languages
@@ -124,7 +129,7 @@ echo "Installing OpenJDK 17..."
 sudo apt install -y openjdk-17-jdk
 
 ## Tailwind CSS language server (if you plan to edit web projects on the server)
-echo "Installing Tailwind CSS language server..."
+echo "Installing Tailwind CSS language server (for web development on server)..."
 sudo npm install -g @tailwindcss/language-server
 
 ## Clipboard utilities (useful for tmux/vim clipboard integration even on server)
@@ -132,7 +137,7 @@ echo "Installing clipboard utilities (xsel, xclip)..."
 sudo apt install -y xsel xclip
 
 # Atuin login
-echo "Setting up Atuin (shell history sync)..."
+echo "Setting up Atuin (shell history sync - requires user interaction or pre-configuration)..."
 sudo apt install -y atuin
 # Atuin login requires user interaction or pre-configuration.
 echo "Please log in to Atuin now if prompted:"
@@ -140,15 +145,16 @@ atuin login -u Jevonx
 atuin sync
 
 # Set Fish user paths for Zig and other tools
-echo "Setting Fish user paths for Zig and other tools..."
+echo "Ensuring Fish user paths are correctly configured for Zig and other tools..."
 # This ensures /opt/zig is in fish's path if zigGhosttyInstall.sh installs zig there.
+# Appending to the config file for persistence across sessions.
 echo 'set -U fish_user_paths /opt/zig $fish_user_paths' >> ~/.config/fish/config.fish
 
 # Launch Neovim to update plugins (headless for server environment)
-echo "Launching Neovim to trigger plugin updates..."
+echo "Launching Neovim to trigger plugin updates (headless for server)..."
 # Using --headless for non-interactive plugin installation. Adjust if your Neovim setup
 # uses a different plugin manager or update command.
-fish -c "nvim --headless '+Lazy sync' '+qa!'" || echo "Neovim plugin sync might require manual intervention."
+fish -c "nvim --headless '+Lazy sync' '+qa!'" || echo "Neovim plugin sync might require manual intervention. Verify plugin manager command."
 # Note: '+Lazy sync' is specific to the 'lazy.nvim' plugin manager. Adjust if using 'packer', 'vim-plug', etc.
 
 echo "Ubuntu server setup script finished!"
