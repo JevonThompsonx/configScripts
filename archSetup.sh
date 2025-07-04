@@ -35,14 +35,22 @@ yay -S  github-cli
 gh auth login
 
 echo "Installing Variety wallpaper manager..."
-yay -S  variety wpaperd
+yay -S  variety wpaperd 
 
 echo "Installing FiraCode font..."
 
+yay -S ttf-firacode-nerd
 fc-cache -fv
 
+echo "Installing other necessaties..." 
+
+yay -Syu exa waybar nwg-drawer nwg-bar foot alacritty librewolf 
 echo "Installing AppImageLauncher..."
 yay -S  appimagelauncher
+
+echo "installing openssh..." 
+
+yay -Syu openssh
 
 echo "Setting up Nextcloud AppImage..."
 mkdir -p ~/Apps
