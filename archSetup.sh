@@ -2,7 +2,7 @@
 
 echo "Updating system and installing base tools..."
 sudo pacman -Syu 
-sudo pacman -S git curl neovim nodejs npm fish fzf cargo unzip ripgrep python-pip zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
+sudo pacman -S git curl neovim nodejs npm fish fzf cargo unzip ripgrep npm nodejs python-pip zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
 
 ## cli helper 
 cargo install atuin
