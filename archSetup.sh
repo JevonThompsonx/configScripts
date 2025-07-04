@@ -51,7 +51,7 @@ fc-cache -fv
 
 echo "Installing other necessaties..." 
 
-yay -Syu exa waybar nwg-drawer nwg-bar foot alacritty librewolf 
+yay -Syu exa waybar nwg-drawer nwg-bar foot alacritty librewolf grimblast
 echo "Installing AppImageLauncher..."
 yay -S  appimagelauncher
 
