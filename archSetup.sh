@@ -2,7 +2,7 @@
 
 echo "Updating system and installing base tools..."
 sudo pacman -Syu 
-sudo pacman -S git curl neovim nodejs npm fish fzf cargo zoxide unzip ripgrep npm nodejs python-pip hyprlock hypridle nextcloud-client zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
+sudo pacman -S git curl neovim nodejs npm fish fzf cargo 
 
 echo "creating project folder" 
 
@@ -34,7 +34,7 @@ sudo systemctl enable --now tailscaled
 sudo tailscale up
 
 echo "Authenticating GitHub CLI..."
-yay -S  github-cli
+yay -S  github-cli zoxide unzip ripgrep npm nodejs python-pip brightnessctl mbpfan-git hyprlock hypridle nextcloud-client zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
 gh auth login
 
 echo "Installing Variety wallpaper manager..."
@@ -90,6 +90,13 @@ echo "Installing EXA replacement (already installed: eza)..."
 echo "Finalizing Config Setup..."
 cd ~/configScripts
 ./clone*.sh || echo "No clone*.sh script found."
+
+echo "mbpfan settings" 
+
+sudo systemctl enable mbpfan
+sudo systemctl start mbpfan
+
+echo -e '\nmin_fan_speed = 2000\nmax_fan_speed = 6200\nlow_temp = 50\nhigh_temp = 70\nmax_temp = 85' | sudo tee -a /etc/mbpfan.conf > /dev/null
 
 echo "Installing ghostty" 
 
