@@ -2,7 +2,7 @@
 
 echo "Updating system and installing base tools..."
 sudo pacman -Syu 
-sudo pacman -S git curl neovim nodejs npm fish fzf cargo zoxide unzip ripgrep npm nodejs python-pip zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
+sudo pacman -S git curl neovim nodejs npm fish fzf cargo zoxide unzip ripgrep npm nodejs python-pip nextcloud-client zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
 
 echo "creating project folder" 
 
@@ -54,12 +54,6 @@ yay -S  appimagelauncher
 echo "installing openssh..." 
 
 yay -Syu openssh
-
-echo "Setting up Nextcloud AppImage..."
-mkdir -p ~/Apps
-cd ~/Apps
-wget https://github.com/nextcloud-releases/desktop/releases/download/v3.16.5/Nextcloud-3.16.5-x86_64.AppImage
-chmod +x Nextcloud*.AppImage
 
 echo "Installing Go (golang)..."
 sudo pacman -S  go
