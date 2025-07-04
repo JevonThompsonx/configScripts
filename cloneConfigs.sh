@@ -40,6 +40,10 @@ clone_repo foot ~/.config/foot
 clone_repo WPs ~/Pictures/WPs
 clone_repo variety ~/.config/variety
 clone_repo fastfetch ~/.config/fastfetch
+clone_repo wofi ~/.config/wofi
+clone_repo hypr ~/.config/hypr
+clone_repo nwg-drawer ~/.config/nwg-drawer
+clone_repo nwg-bar ~/.config/nwg-bar
 
 echo "System config cloning complete!"
 exit 0
