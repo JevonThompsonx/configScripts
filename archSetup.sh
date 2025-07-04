@@ -19,7 +19,6 @@ echo "Cloning config scripts..."
 cd ~
 git clone https://github.com/JevonThompsonx/configScripts.git
 chmod +x ~/configScripts/*.sh
-~/configScripts/zig*.sh || echo "No zig*.sh script found."
 
 
 echo "Alacritty theme setup..."
@@ -93,6 +92,10 @@ echo "Installing EXA replacement (already installed: eza)..."
 echo "Finalizing Config Setup..."
 cd ~/configScripts
 ./clone*.sh || echo "No clone*.sh script found."
+
+echo "Installing ghostty" 
+
+yay -Syu zig ghostty
 
 yay -Syu cargo 
 yay -Syu atuin
