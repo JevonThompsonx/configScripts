@@ -113,5 +113,7 @@ atuin sync
 
 echo "Launching fish and Neovim..."
 fish -c "set -U fish_user_paths /opt/zig \$fish_user_paths"
+echo "setting fish as default shell" 
 
+chsh -s /usr/bin/fish
 nvim
