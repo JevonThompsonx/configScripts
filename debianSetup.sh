@@ -29,8 +29,7 @@ sudo apt install ./web*.deb
 
 echo "installs available packages via deb repo"
 
-sudo apt install curl gh neovim nodejs npm zoxide fastfetch foot alacritty fish
-
+sudo apt install curl gh neovim nodejs npm zoxide fastfetch foot alacritty fish ffmpeg
 # alacritty theme
 echo "applying alacritty theme"
 mkdir -p ~/.config/alacritty/themes
