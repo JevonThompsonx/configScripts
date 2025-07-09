@@ -105,7 +105,7 @@ echo -e '\nmin_fan_speed = 2000\nmax_fan_speed = 6200\nlow_temp = 50\nhigh_temp 
 
 echo "Installing ghostty" 
 
-yay -Syu zig ghostty
+yay -Syu zig ghostty ffmpeg
 
 yay -Syu cargo 
 yay -Syu atuin
