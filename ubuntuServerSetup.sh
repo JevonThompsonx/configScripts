@@ -8,7 +8,7 @@ echo "Starting Ubuntu server setup script (main).."
 # Basic system update and essential tools
 echo "Updating package list and installing core utilities..."
 sudo apt update
-sudo apt install -y extrepo git curl calibre wget gpg software-properties-common apt-transport-https ca-certificates unzip
+sudo apt install -y extrepo ffmpeg git curl calibre wget gpg software-properties-common apt-transport-https ca-certificates unzip
 
 # Clone config scripts
 echo "Ensuring clean configScripts directory and cloning..."
