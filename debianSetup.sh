@@ -3,7 +3,7 @@
 echo "updating..."
 sudo apt update && sudo apt install extrepo -y
 echo "git install"
-sudo apt install git
+sudo apt install git calibre
 echo "installing config scripts just in case" 
 
 cd ~
