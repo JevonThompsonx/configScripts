@@ -35,7 +35,7 @@ sudo systemctl start tailscaled
 sudo tailscale up
 
 echo "Authenticating GitHub CLI..."
-yay -S  github-cli zoxide unzip tlp tlp-rdw ripgrep npm nodejs python-pip brightnessctl mbpfan-git hyprlock hypridle nextcloud-client zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
+yay -S  github-cli zoxide unzip calibre tlp tlp-rdw ripgrep npm nodejs python-pip brightnessctl mbpfan-git hyprlock hypridle nextcloud-client zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
 gh auth login
 
 echo "battery management" 
