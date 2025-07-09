@@ -68,6 +68,9 @@ curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo te
 curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
 # Install Tailscale
 sudo apt-get update && sudo apt-get install tailscale
+
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
 # Start Tailscale!
 sudo tailscale up
 
