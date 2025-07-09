@@ -8,7 +8,7 @@ echo "Starting Ubuntu server setup script (main).."
 # Basic system update and essential tools
 echo "Updating package list and installing core utilities..."
 sudo apt update
-sudo apt install -y extrepo git curl wget gpg software-properties-common apt-transport-https ca-certificates unzip
+sudo apt install -y extrepo git curl calibre wget gpg software-properties-common apt-transport-https ca-certificates unzip
 
 # Clone config scripts
 echo "Ensuring clean configScripts directory and cloning..."
@@ -66,6 +66,8 @@ curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo te
 curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
 sudo apt update # Update after adding Tailscale repo
 sudo apt install -y tailscale
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
 sudo tailscale up
 
 # GitHub CLI authentication
