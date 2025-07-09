@@ -30,7 +30,8 @@ mkdir -p ~/.config/alacritty/themes
 git clone https://github.com/alacritty/alacritty-theme ~/.config/alacritty/themes
 
 echo "Setting up Tailscale..."
-sudo systemctl enable --now tailscaled
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
 sudo tailscale up
 
 echo "Authenticating GitHub CLI..."
