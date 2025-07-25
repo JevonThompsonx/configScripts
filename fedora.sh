@@ -169,7 +169,7 @@ sudo tailscale up
 
 # Log in to Atuin and sync
 echo "Logging in to Atuin..."
-atuin login -u Jevonx
+atuin login
 atuin sync
 
 # Run your custom configuration script
