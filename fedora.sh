@@ -16,8 +16,18 @@ sudo dnf install \
   https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
   https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
 
-# Enable COPR repositories for specific packages (eza, Nerd Fonts)
-sudo dnf copr enable atim/eza -y
+# eza 
+
+git clone https://github.com/eza-community/eza.git
+cd eza
+cargo install --path .
+
+# wpaperd 
+
+git clone https://github.com/danyspin97/wpaperd
+cd wpaperd
+cargo build --release
+
 sudo dnf copr enable che/nerd-fonts -y
 
 # Add GitHub CLI repository
