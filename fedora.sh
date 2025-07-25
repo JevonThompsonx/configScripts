@@ -30,7 +30,7 @@ sudo dnf install gh -y
 echo "⚙️ Installing core packages, CLI tools, and libraries with DNF..."
 sudo dnf install git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit alacritty foot neovim nodejs npm golang tlp tlp-rdw go \
 brightnessctl calibre gnome-calendar variety ffmpeg openssh python3-pip python3-virtualenv python3-neovim luarocks \
-ruby php java-17-openjdk-devel xsel xclip gcc --skip-unavailable --skip-broken
+ruby php java-17-openjdk-devel xsel xclip gcc nwg-drawer wofi --skip-unavailable --skip-broken
 
 ## fira code
 curl -L -O https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip
