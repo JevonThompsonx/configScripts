@@ -16,17 +16,7 @@ sudo dnf install \
   https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
   https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
 
-# eza 
 
-git clone https://github.com/eza-community/eza.git
-cd eza
-cargo install --path .
-
-# wpaperd 
-
-git clone https://github.com/danyspin97/wpaperd
-cd wpaperd
-cargo build --release
 
 sudo dnf copr enable che/nerd-fonts -y
 
@@ -84,9 +74,19 @@ fi
 echo "Installing Rust-based tools (atuin, selene)..."
 cargo install atuin selene
 
+# exa
+cargo install exa
+
+# wpaperd 
+
+git clone https://github.com/danyspin97/wpaperd
+cd wpaperd
+cargo build --release
+
 # Install global NPM packages for Neovim support
 echo "Installing global NPM packages..."
 sudo npm install -g neovim tree-sitter-cli @tailwindcss/language-server
+
 
 # Install Bun
 echo "Installing Bun..."
