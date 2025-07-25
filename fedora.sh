@@ -1,4 +1,4 @@
-#!/bin/bash
+a#!/bin/bash
 
 # A script to set up a Fedora development and desktop environment.
 
@@ -72,7 +72,9 @@ fi
 
 # Install tools via Cargo
 echo "Installing Rust-based tools (atuin, selene)..."
-cargo install atuin selene
+curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+
+cargo install selene
 
 # exa
 cargo install exa
