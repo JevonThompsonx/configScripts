@@ -28,14 +28,7 @@ sudo dnf install gh -y
 # SECTION 2: DNF PACKAGE INSTALLATION
 # ---
 echo "⚙️ Installing core packages, CLI tools, and libraries with DNF..."
-sudo dnf install -y \
-  git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit \
-  alacritty foot neovim nodejs npm golang tlp tlp-rdw go brightnessctl \
-  calibre gnome-calendar variety ffmpeg openssh \
-  python3-pip python3-virtualenv python3-neovim \
-  luarocks ruby php java-17-openjdk-devel \
-  xsel xclip fira-code-nerd-fonts \
-  gcc
+sudo dnf install git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit alacritty foot neovim nodejs npm golang tlp tlp-rdw go brightnessctl calibre gnome-calendar variety ffmpeg openssh python3-pip python3-virtualenv python3-neovim luarocks ruby php java-17-openjdk-devel xsel xclip fira-code-nerd-fonts gcc --skip-unavailable --skip-broken
 
 # ---
 # SECTION 3: FLATPAK & DESKTOP APP INSTALLATION
@@ -78,12 +71,6 @@ cargo install selene
 
 # exa
 cargo install exa
-
-# wpaperd 
-
-git clone https://github.com/danyspin97/wpaperd
-cd wpaperd
-cargo build --release
 
 # Install global NPM packages for Neovim support
 echo "Installing global NPM packages..."
