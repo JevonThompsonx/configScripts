@@ -12,6 +12,7 @@ sudo pacman -Syu --noconfirm
 
 echo "Installing essential utilities, development tools, and applications..."
 sudo pacman -S --noconfirm \
+    tree \
     git \
     curl \
     wget \
