@@ -86,7 +86,7 @@ sudo apt install -y python3 python3-pip python3-venv
 
 # GoLang install
 echo "Installing GoLang..."
-sudo apt install -y golang-go
+sudo apt install -y golang-go tree
 
 # Bun install
 echo "Installing Bun..."
