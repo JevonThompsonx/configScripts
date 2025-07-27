@@ -1,120 +1,134 @@
 #!/bin/bash
+# Ensure the script exits if any command fails
+set -e
+echo "Starting Arch Linux server setup script..."
 
-echo "Updating system and installing base tools..."
-sudo pacman -Syu 
-sudo pacman -S git curl neovim nodejs npm fish fzf cargo 
+# --- System Update and Package Installation ---
+echo "Updating package repositories and installing core packages..."
+# On Arch, we use 'pacman'. '-Syu' syncs repositories and updates the system.
+# '--noconfirm' answers yes to all prompts, similar to '-y' in apt.
+# 'base-devel' is a group of essential tools for building packages (e.g., from AUR).
+sudo pacman -Syu --noconfirm
 
-echo "creating project folder" 
+echo "Installing essential utilities, development tools, and applications..."
+sudo pacman -S --noconfirm \
+    git \
+    curl \
+    wget \
+    gnupg \
+    unzip \
+    ffmpeg \
+    calibre \
+    github-cli \
+    neovim \
+    nodejs \
+    npm \
+    zoxide \
+    fastfetch \
+    foot \
+    fish \
+    eza \
+    tailscale \
+    ttf-fira-code \
+    python \
+    python-pip \
+    go \
+    ripgrep \
+    lazygit \
+    luarocks \
+    ruby \
+    php \
+    jdk17-openjdk \
+    xsel \
+    xclip \
+    atuin
 
-mkdir ~/Documents/Projects
+# --- Configuration and OS-Agnostic Installers ---
 
-## cli helper 
-cargo install atuin
-
-echo "Installing AUR helper (yay)..."
-if ! command -v yay &> /dev/null; then
-  cd ~
-  git clone https://aur.archlinux.org/yay.git
-  cd yay
-  makepkg -si 
+# Clone config scripts
+echo "Ensuring clean configScripts directory and cloning..."
+# This part is OS-agnostic and remains the same.
+if [ -d "$HOME/configScripts" ]; then
+    echo "Existing configScripts directory found. Removing it..."
+    rm -rf "$HOME/configScripts"
 fi
-
-echo "Cloning config scripts..."
 cd ~
 git clone https://github.com/JevonThompsonx/configScripts.git
 chmod +x ~/configScripts/*.sh
 
+# Execute Arch-specific setup script from your configScripts repository
+echo "Running initial Arch-specific setup script from configScripts (if present)..."
+if [ -f "$HOME/configScripts/archSetup.sh" ]; then
+    echo "Executing ~/configScripts/archSetup.sh..."
+    "$HOME/configScripts/archSetup.sh"
+else
+    echo "Warning: ~/configScripts/archSetup.sh not found. Skipping Arch-specific configuration from your repo."
+fi
 
-echo "Alacritty theme setup..."
-mkdir -p ~/.config/alacritty/themes
-git clone https://github.com/alacritty/alacritty-theme ~/.config/alacritty/themes
+# Install Ghostty terminal (assuming zigGhosttyInstall.sh handles dependencies)
+echo "Installing Ghostty terminal and its dependencies (via zigGhosttyInstall.sh, if present)..."
+if [ -f "$HOME/configScripts/zigGhosttyInstall.sh" ]; then
+    echo "Executing ~/configScripts/zigGhosttyInstall.sh..."
+    "$HOME/configScripts/zigGhosttyInstall.sh"
+else
+    echo "Warning: ~/configScripts/zigGhosttyInstall.sh not found. Skipping Ghostty installation."
+fi
 
-echo "Setting up Tailscale..."
-sudo systemctl enable tailscaled
-sudo systemctl start tailscaled
+# Tailscale setup
+echo "Enabling and starting Tailscale..."
+# '--now' enables the service to start on boot and starts it immediately.
+sudo systemctl enable --now tailscaled
 sudo tailscale up
 
-echo "Authenticating GitHub CLI..."
-yay -S  github-cli zoxide unzip calibre tlp tlp-rdw ripgrep npm nodejs python-pip brightnessctl mbpfan-git hyprlock hypridle nextcloud-client zoxide python-virtualenv gcc base-devel wget zoxide fastfetch alacritty foot librewolf-bin vivaldi eza obsidian localsend freetube-bin tailscale lazygit selene-bin webapp-manager ttf-fira-code ttf-firacode-nerd freedownloadmanager
+# GitHub CLI authentication
+echo "Authenticating GitHub CLI (requires user interaction)..."
+# This command is the same on any OS.
 gh auth login
 
-echo "battery management" 
-sudo systemctl enable tlp
-sudo systemctl start tlp
-
-echo "Installing Variety wallpaper manager..."
-yay -S  variety wpaperd 
-
-echo "Installing FiraCode font..."
-
-yay -S ttf-firacode-nerd
+# Fira Code Fonts cache update
+echo "Updating font cache for Fira Code..."
+# pacman hooks usually handle this, but running it manually ensures it's done.
 fc-cache -fv
 
-echo "Installing other necessaties..." 
-
-yay -Syu exa waybar nwg-drawer nwg-bar foot alacritty librewolf grimblast
-echo "Installing AppImageLauncher..."
-yay -S  appimagelauncher
-
-echo "installing openssh..." 
-
-yay -Syu openssh
-
-echo "Installing Go (golang)..."
-sudo pacman -S  go
-
+# Bun install (OS-agnostic)
 echo "Installing Bun..."
 curl -fsSL https://bun.sh/install | bash
 echo "Bun version:"
 ~/.bun/bin/bun -v
 
-echo "Setting up Neovim tools and language support..."
+# Add bun to PATH for current session and future sessions
+export PATH="$HOME/.bun/bin:$PATH"
+echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.profile # For bash/zsh
+echo 'set -U fish_user_paths $HOME/.bun/bin $fish_user_paths' >> ~/.config/fish/config.fish # For fish
 
-# Tree-sitter CLI
-sudo npm install -g tree-sitter-cli
-# Neovim Python support
-pip install pynvim
-# Neovim Node support
-sudo npm install -g neovim
-# Neovim Rust tooling
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Rust/Cargo install (OS-agnostic)
+echo "Installing Rust and Cargo..."
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y # -y for non-interactive install
+# Add cargo to PATH for current session
+source "$HOME/.cargo/env"
 
-# LuaRocks
-# Ruby, php, java
-sudo pacman -S  ruby php jdk17-openjdk luarocks xsel xclip
-
-# TailwindCSS LSP
+# Neovim tools and language servers (npm, cargo)
+echo "Setting up Neovim tools..."
+sudo npm install -g neovim tree-sitter-cli
 sudo npm install -g @tailwindcss/language-server
+cargo install selene # This requires Rust/Cargo to be installed first.
 
-
-echo "Installing Calendar Client..."
-sudo pacman -S  gnome-calendar
-
-echo "Installing EXA replacement (already installed: eza)..."
-
-echo "Finalizing Config Setup..."
-cd ~/configScripts
-./clone*.sh || echo "No clone*.sh script found."
-
-echo "mbpfan settings" 
-
-sudo systemctl enable mbpfan
-sudo systemctl start mbpfan
-
-echo -e '\nmin_fan_speed = 2000\nmax_fan_speed = 6200\nlow_temp = 50\nhigh_temp = 70\nmax_temp = 85' | sudo tee -a /etc/mbpfan.conf > /dev/null
-
-echo "Installing ghostty" 
-
-yay -Syu zig ghostty ffmpeg
-
-yay -Syu cargo 
-yay -Syu atuin
+# Atuin login
+echo "Setting up Atuin (shell history sync - requires user interaction or pre-configuration)..."
+# The login process is interactive.
+echo "Please log in to Atuin now if prompted:"
 atuin login -u Jevonx
 atuin sync
 
-echo "Launching fish and Neovim..."
-fish -c "set -U fish_user_paths /opt/zig \$fish_user_paths"
-echo "setting fish as default shell" 
+# Set Fish user paths for Zig and other tools
+echo "Ensuring Fish user paths are correctly configured for Zig and other tools..."
+# This ensures /opt/zig is in fish's path if zigGhosttyInstall.sh installs zig there.
+echo 'set -U fish_user_paths /opt/zig $fish_user_paths' >> ~/.config/fish/config.fish
 
-chsh -s /usr/bin/fish
-nvim
+# Launch Neovim to update plugins (headless for server environment)
+echo "Launching Neovim to trigger plugin updates (headless for server)..."
+# Assumes 'lazy.nvim' plugin manager. Adjust command if you use another one.
+fish -c "nvim --headless '+Lazy sync' '+qa!'" || echo "Neovim plugin sync might require manual intervention. Verify plugin manager command."
+
+echo "Arch Linux server setup script finished!"
+echo "It is recommended to reboot your system now for all changes to take effect: sudo reboot"
