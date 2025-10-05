@@ -6,13 +6,6 @@ echo "git install"
 sudo apt install git calibre
 echo "installing config scripts just in case" 
 
-cd ~
-git clone https://github.com/JevonThompsonx/configScripts.git
-chmod +x ~/configScripts/*.sh
-~/update-debian*.sh
-# ghostty terminal install
-~/zig*.sh
-
 
 # update
 echo "updating" 
@@ -143,9 +136,6 @@ echo "calendar software"
 sudo apt install gnome-calendar
 
 cargo install exa 
-
-cd ~/configScripts
-./clone*.sh
 
 ## atuin login 
 
