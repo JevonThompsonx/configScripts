@@ -161,14 +161,27 @@ clone_user_configs() {
 setup_arch() {
     print_header "Running Arch Linux Setup"
     sudo pacman -Syu --noconfirm
-    
+
     echo "Installing packages with pacman..."
-    # The --ask 20 is unusual but respected as user preference.
-    sudo pacman -S --noconfirm --needed --ask 20 \
-        tree git curl wget gnupg unzip ffmpeg calibre github-cli neovim \
-        nodejs npm zoxide fastfetch foot fish eza tailscale ttf-fira-code \
-        python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk \
+
+    # [IMPROVEMENT] Use an array for the package list for better readability and modification.
+    local packages=(
+        tree git curl wget gnupg unzip ffmpeg calibre github-cli neovim
+        npm zoxide fastfetch foot fish eza tailscale ttf-fira-code
+        python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk
         xsel xclip
+    )
+
+    # [FIX] Check for an existing Node.js installation before adding it to the list.
+    if ! command -v node &> /dev/null; then
+        echo "Node.js not found. Adding 'nodejs' to the installation list."
+        packages+=("nodejs")
+    else
+        echo "✅ Node.js is already installed ($(node -v)). Skipping installation to avoid conflicts."
+    fi
+
+    # The --ask 20 is unusual but respected as user preference.
+    sudo pacman -S --noconfirm --needed --ask 20 "${packages[@]}"
 
     # --- Omarchy Specific Setup ---
     # This logic is sound, no changes needed.
