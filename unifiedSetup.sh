@@ -45,6 +45,31 @@ print_header() {
     echo "===================================================================="
 }
 
+# --- NEW: Function to install AppImages and their launcher ---
+install_appimages() {
+    print_header "Installing AppImages (Nextcloud)"
+    local app_dir="$HOME/Applications"
+    mkdir -p "$app_dir"
+
+    # Define the Nextcloud AppImage details
+    local nextcloud_appimage_name="Nextcloud-latest-x86_64.AppImage"
+    local nextcloud_url="https://github.com/nextcloud-releases/desktop/releases/latest/download/${nextcloud_appimage_name}"
+    local nextcloud_dest="$app_dir/$nextcloud_appimage_name"
+
+    # Download the AppImage if it doesn't exist
+    if [ ! -f "$nextcloud_dest" ]; then
+        echo "Downloading Nextcloud AppImage..."
+        # Use wget as it's a common dependency installed by the script
+        wget -q --show-progress -O "$nextcloud_dest" "$nextcloud_url"
+        chmod +x "$nextcloud_dest"
+        echo "✅ Nextcloud AppImage installed to $nextcloud_dest"
+        echo "AppImageLauncher will help integrate it into your system."
+    else
+        echo "✅ Nextcloud AppImage already exists. Skipping download."
+    fi
+}
+
+
 # Function to install Rust and Cargo
 install_rust() {
     print_header "Installing Rust and Cargo"
@@ -80,7 +105,6 @@ install_bun() {
     fi
 }
 
-# Function to install common development tools via Cargo and NPM
 # Function to install common development tools via Cargo and NPM
 install_common_dev_tools() {
     print_header "Installing common development tools (NPM packages, Cargo crates)"
@@ -188,7 +212,7 @@ setup_arch() {
         tree git curl wget gnupg unzip ffmpeg calibre github-cli neovim
         npm zoxide fastfetch foot fish eza tailscale ttf-fira-code
         python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk
-        xsel xclip
+        xsel xclip appimagelauncher # <-- ADDED AppImageLauncher
     )
 
     # [FIX] Check for an existing Node.js installation before adding it to the list.
@@ -236,10 +260,16 @@ setup_arch() {
 setup_debian() {
     print_header "Running Debian/Ubuntu Setup"
     sudo apt update
-    sudo apt install -y curl wget gpg git lsb-release # [IMPROVEMENT] ensure lsb-release is present
+    # Ensure tools for adding repositories are present
+    sudo apt install -y curl wget gpg git lsb-release software-properties-common
     
-    # Add external repositories (eza, Tailscale)
+    # Add external repositories
     echo "Adding external repositories..."
+
+    # --- ADDED: AppImageLauncher PPA ---
+    echo "Adding AppImageLauncher PPA..."
+    sudo add-apt-repository -y ppa:appimagelauncher-team/stable
+
     # eza
     sudo mkdir -p /etc/apt/keyrings
     wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
@@ -262,25 +292,30 @@ setup_debian() {
         extrepo calibre gh neovim nodejs npm zoxide fastfetch foot fish \
         ffmpeg eza tailscale variety fonts-firacode python3 python3-pip \
         python3-venv python3-pynvim golang-go ripgrep lazygit luarocks \
-        ruby-full php openjdk-17-jdk xsel xclip gnome-calendar
+        ruby-full php openjdk-17-jdk xsel xclip gnome-calendar \
+        appimagelauncher # <-- ADDED AppImageLauncher
 }
 
 setup_fedora() {
     print_header "Running Fedora Setup"
     sudo dnf upgrade --refresh -y
     
-    echo "Enabling third-party repositories (RPM Fusion, GitHub CLI)..."
+    echo "Enabling third-party repositories (RPM Fusion, GitHub CLI, AppImageLauncher)..."
     sudo dnf install -y \
       "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
       "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
     sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
     
+    # --- ADDED: AppImageLauncher COPR repository ---
+    sudo dnf copr enable -y atim/appimagelauncher
+
     echo "Installing packages with dnf..."
     sudo dnf install -y \
         git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit \
         foot neovim nodejs npm golang go gh tailscale variety calibre \
         gnome-calendar ffmpeg python3-pip python3-virtualenv python3-neovim \
-        luarocks ruby php java-17-openjdk-devel xsel xclip fira-code-fonts
+        luarocks ruby php java-17-openjdk-devel xsel xclip fira-code-fonts \
+        appimagelauncher # <-- ADDED AppImageLauncher
 
     echo "Installing desktop applications via Flatpak..."
     flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -289,7 +324,7 @@ setup_fedora() {
       net.localsend.localsend \
       io.freetubeapp.FreeTube \
       com.librewolf.Librewolf \
-      com.nextcloud.desktopclient
+      com.nextcloud.desktopclient # Note: This is a Flatpak version. The AppImage provides an alternative.
 }
 
 # --- Main Execution Logic ---
@@ -327,6 +362,7 @@ main() {
     
     # --- Common Setup Steps for All Distributions ---
     
+    install_appimages # <-- ADDED: Run the new AppImage function
     install_rust
     install_bun
     install_common_dev_tools
@@ -336,7 +372,6 @@ main() {
     echo "Enabling and starting Tailscale..."
     sudo systemctl enable --now tailscaled
     # Note: `tailscale up` requires interaction. Consider adding `--authkey` for true automation.
-    # For now, this is fine.
     sudo tailscale up
     
     echo "Updating font cache..."
