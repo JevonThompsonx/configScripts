@@ -115,7 +115,7 @@ setup_arch() {
     sudo pacman -Syu --noconfirm
     
     echo "Installing packages with pacman..."
-    sudo pacman -S --noconfirm --needed \
+    sudo pacman -S --noconfirm --needed --ask 20 \
         tree git curl wget gnupg unzip ffmpeg calibre github-cli neovim \
         nodejs npm zoxide fastfetch foot fish eza tailscale ttf-fira-code \
         python python-pip go ripgrep lazygit luarocks ruby php jdk17-openjdk \
