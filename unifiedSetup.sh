@@ -84,9 +84,6 @@ install_bun() {
 install_common_dev_tools() {
     print_header "Installing common development tools (NPM packages, Cargo crates)"
 
-    # Source cargo env to ensure it's available in this shell
-    source "$HOME/.cargo/env"
-
     echo "Installing global NPM packages..."
     # [FIX] Avoid running `npm install -g` with sudo.
     # This requires the user to have configured npm to use a local directory.
