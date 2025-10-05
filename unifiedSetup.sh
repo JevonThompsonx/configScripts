@@ -81,20 +81,42 @@ install_bun() {
 }
 
 # Function to install common development tools via Cargo and NPM
+# Function to install common development tools via Cargo and NPM
 install_common_dev_tools() {
     print_header "Installing common development tools (NPM packages, Cargo crates)"
 
+    # Source cargo env to ensure it's available in this shell
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    fi
+
     echo "Installing global NPM packages..."
-    # [FIX] Avoid running `npm install -g` with sudo.
-    # This requires the user to have configured npm to use a local directory.
-    echo "ℹ️  Note: Installing global NPM packages without sudo."
-    echo "This requires NPM to be configured correctly. If this fails, run:"
-    echo 'mkdir -p "$HOME/.npm-global" && npm config set prefix "$HOME/.npm-global"'
-    echo 'And add export PATH="$HOME/.npm-global/bin:$PATH" to your .profile'
+    
+    # --- FIX: Configure NPM to use a local directory to avoid permission errors ---
+    echo "➡️  Configuring NPM to use a user-local directory..."
+    local NPM_GLOBAL_DIR="$HOME/.npm-global"
+    mkdir -p "$NPM_GLOBAL_DIR"
+    npm config set prefix "$NPM_GLOBAL_DIR"
+    
+    # Add the new path to the current session's PATH so the command works now
+    export PATH="$NPM_GLOBAL_DIR/bin:$PATH"
+    
+    # Ensure the path is added to the shell profile for future sessions
+    if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.profile" &>/dev/null; then
+        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.profile"
+        echo "✅ Added NPM global path to $HOME/.profile for future sessions."
+    fi
+    # --- END FIX ---
+
+    # This command will now succeed by installing into the user's home directory
     npm install -g neovim tree-sitter-cli @tailwindcss/language-server
 
     echo "Installing Rust-based tools with Cargo..."
-    cargo install selene atuin
+    if command -v cargo &> /dev/null; then
+        cargo install selene atuin
+    else
+        echo "⚠️  Cargo not found in PATH. Skipping installation of Rust tools."
+    fi
 }
 
 # Function to clone personal configuration files
