@@ -97,19 +97,6 @@ else
     echo "Bun is already installed."
 fi
 
-# Install Ghostty Terminal
-echo "Installing Ghostty terminal..."
-if [ ! -d "$HOME/ghostty" ]; then
-    sudo dnf install zig -y
-    cd "$HOME"
-    git clone https://github.com/ghostty-org/ghostty.git
-    cd ghostty
-    zig build
-    echo "Ghostty built in ~/ghostty/zig-out/bin/. Add this to your shell's PATH."
-else
-    echo "Ghostty directory already exists."
-fi
-
 
 # ---
 # SECTION 5: CONFIGURATION & SETUP
@@ -119,36 +106,10 @@ echo "🎨 Applying configurations and setting up services..."
 # Create project folder
 mkdir -p ~/Documents/Projects
 
-# Clone your personal configuration scripts
-echo "Cloning personal config scripts..."
-if [ ! -d "$HOME/configScripts" ]; then
-    git clone https://github.com/JevonThompsonx/configScripts.git ~/configScripts
-    chmod +x ~/configScripts/*.sh
-else
-    echo "configScripts directory already exists."
-fi
-
-
-# Alacritty theme setup
-echo "Setting up Alacritty themes..."
-mkdir -p ~/.config/alacritty/themes
-if [ ! -d "$HOME/.config/alacritty/themes/alacritty-theme" ]; then
-    git clone https://github.com/alacritty/alacritty-theme.git ~/.config/alacritty/themes
-else
-    echo "Alacritty themes already cloned."
-fi
-
 
 # Enable and start system services
-echo "Enabling and starting services (Tailscale, TLP, mbpfan)..."
-sudo dnf install tailscale mbpfan -y # Ensure these are installed before enabling
 sudo systemctl enable --now tailscaled
-sudo systemctl enable --now tlp
-sudo systemctl enable --now mbpfan
 
-# Append custom settings to mbpfan.conf
-echo "Configuring mbpfan..."
-echo -e '\nmin_fan_speed = 2000\nmax_fan_speed = 6200\nlow_temp = 50\nhigh_temp = 70\nmax_temp = 85' | sudo tee -a /etc/mbpfan.conf > /dev/null
 
 # Update font cache
 echo "Updating font cache..."
@@ -159,10 +120,6 @@ fc-cache -fv
 # ---
 echo "🔑 Final user authentications and setup..."
 
-# Authenticate with GitHub CLI
-echo "Please authenticate with GitHub. A browser window will open."
-gh auth login
-
 # Start Tailscale
 sudo tailscale up
 
@@ -171,11 +128,6 @@ echo "Logging in to Atuin..."
 atuin login
 atuin sync
 
-# Run your custom configuration script
-if [ -f "$HOME/configScripts/clone*.sh" ]; then
-    echo "Running custom clone script..."
-    cd ~/configScripts && ./clone*.sh
-fi
 
 # Set Fish as the default shell
 if [ "$SHELL" != "/usr/bin/fish" ]; then
