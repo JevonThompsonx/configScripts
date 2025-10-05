@@ -1,23 +1,52 @@
 #!/bin/bash
 #
 # Unified Setup Script for Arch, Debian, and Fedora-based Systems
+# MODIFIED TO CONTINUE ON ERROR
 # This script auto-detects the distribution and installs a common
 # set of development tools, applications, and personal configurations.
+# It will attempt to run every step, even if a previous one fails.
 #
 
 # --- Configuration ---
-# Exit immediately if a command exits with a non-zero status.
-set -e
+# The line 'set -e' has been REMOVED.
+# This prevents the script from exiting immediately on a command failure.
 
-# --- Pre-flight Checks ---
+# --- Helper Functions ---
 
-# [FIX] Prevent script from being run as root.
+# [NEW] A "try-catch" wrapper function to run commands and continue on failure.
+try_run() {
+    echo "▶️  Attempting to run: $@"
+    # Execute the command, suppressing its output for a cleaner log
+    # and capturing the exit code.
+    "$@" &> /dev/null
+    local status=$?
+    if [ $status -ne 0 ]; then
+        echo "❌ Command failed with exit code $status: '$@'"
+        echo "   Continuing with the rest of the script..."
+    else
+        echo "✅ Command succeeded: '$@'"
+    fi
+    # Always return 0 so the script doesn't trip on this function's return code.
+    return 0
+}
+
+# Function to print a formatted section header
+print_header() {
+    echo ""
+    echo "===================================================================="
+    echo "➡️  $1"
+    echo "===================================================================="
+}
+
+# --- Pre-flight Checks (These are critical and will still exit the script) ---
+
+# Prevent script from being run as root.
 if [ "$EUID" -eq 0 ]; then
   echo "❌ This script must not be run as root. Use sudo internally when prompted."
   exit 1
 fi
 
-# [IMPROVEMENT] Function to check for essential dependencies.
+# Function to check for essential dependencies.
 check_dependencies() {
     print_header "Checking for essential dependencies"
     local missing_deps=()
@@ -35,28 +64,18 @@ check_dependencies() {
     echo "✅ Essential dependencies found."
 }
 
-# --- Helper Functions ---
 
-# Function to print a formatted section header
-print_header() {
-    echo ""
-    echo "===================================================================="
-    echo "➡️  $1"
-    echo "===================================================================="
-}
+# --- Installation Functions (Wrapped with try_run) ---
 
 # Function to install Rust and Cargo
 install_rust() {
     print_header "Installing Rust and Cargo"
     if ! command -v cargo &> /dev/null; then
-        # The '-y' flag automates the installation
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        # Use bash -c to handle the piped command correctly
+        try_run bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
         
-        # [FIX] Add cargo to the shell profile for persistence.
         echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> "$HOME/.profile"
-        # Source it for the current session as well.
         source "$HOME/.cargo/env"
-        echo "Rust installed successfully."
     else
         echo "Rust is already installed. Skipping."
     fi
@@ -66,17 +85,15 @@ install_rust() {
 install_bun() {
     print_header "Installing Bun JavaScript runtime"
     if ! command -v bun &> /dev/null; then
-        curl -fsSL https://bun.sh/install | bash
-        echo "Bun installed successfully."
-        # Note: The script already correctly adds this to .profile.
+        try_run bash -c "curl -fsSL https://bun.sh/install | bash"
+        
         echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.profile"
+        # Source profile to make bun available immediately
+        if [ -f "$HOME/.profile" ]; then
+            source "$HOME/.profile"
+        fi
     else
         echo "Bun is already installed. Skipping."
-    fi
-    # [IMPROVEMENT] Source the profile to make bun available immediately.
-    # It's better to use the absolute path if we can't guarantee it's in the PATH yet.
-    if [ -x "$HOME/.bun/bin/bun" ]; then
-        "$HOME/.bun/bin/bun" --version
     fi
 }
 
@@ -84,66 +101,62 @@ install_bun() {
 install_common_dev_tools() {
     print_header "Installing common development tools (NPM packages, Cargo crates)"
 
-    # Source cargo env to ensure it's available in this shell
-    source "$HOME/.cargo/env"
+    if command -v npm &> /dev/null; then
+        echo "Installing global NPM packages..."
+        try_run npm install -g neovim tree-sitter-cli @tailwindcss/language-server
+    else
+        echo "⚠️  npm not found. Skipping NPM package installation."
+    fi
 
-    echo "Installing global NPM packages..."
-    # [FIX] Avoid running `npm install -g` with sudo.
-    # This requires the user to have configured npm to use a local directory.
-    echo "ℹ️  Note: Installing global NPM packages without sudo."
-    echo "This requires NPM to be configured correctly. If this fails, run:"
-    echo 'mkdir -p "$HOME/.npm-global" && npm config set prefix "$HOME/.npm-global"'
-    echo 'And add export PATH="$HOME/.npm-global/bin:$PATH" to your .profile'
-    npm install -g neovim tree-sitter-cli @tailwindcss/language-server
-
-    echo "Installing Rust-based tools with Cargo..."
-    cargo install selene atuin
+    if command -v cargo &> /dev/null; then
+        echo "Installing Rust-based tools with Cargo..."
+        source "$HOME/.cargo/env" # Ensure cargo is in PATH
+        try_run cargo install selene atuin
+    else
+        echo "⚠️  cargo not found. Skipping Cargo package installation."
+    fi
 }
 
 # Function to clone personal configuration files
 clone_user_configs() {
     print_header "Cloning user configuration files from GitHub"
     
-    # [IMPROVEMENT] Check for gh CLI before trying to use it.
     if ! command -v gh &> /dev/null; then
-        echo "❌ GitHub CLI ('gh') not found. It should have been installed by the distro-specific function."
-        exit 1
+        echo "❌ GitHub CLI ('gh') not found. Cannot clone configs."
+        return 1
     fi
 
-    echo "Authenticating with GitHub CLI. Please follow the prompts."
-    # Use `gh auth status` to check if already logged in.
+    echo "Attempting GitHub authentication..."
     if ! gh auth status &> /dev/null; then
+        # Note: Interactive command, cannot be fully wrapped by try_run
         if ! gh auth login; then
             echo "❌ GitHub authentication failed. Cannot clone configs."
-            exit 1
+            return 1
         fi
     else
         echo "✅ Already authenticated with GitHub."
     fi
 
-    echo "Authentication successful. Cloning repositories..."
-
-    # Helper function to clone a repo to a specific destination
+    # Helper function to clone a repo
     clone_repo() {
         local repo_name="$1"
         local destination_dir="$2"
         
         echo "Setting up repository: $repo_name"
-        # [IMPROVEMENT] Use `mv` for a backup instead of destructive `rm -rf`.
         if [ -d "$destination_dir" ]; then
             echo "Backing up existing directory: $destination_dir -> ${destination_dir}.bak"
             mv "$destination_dir" "${destination_dir}.bak.$(date +%s)"
         fi
         
         echo "Cloning $repo_name into $destination_dir..."
-        gh repo clone "$repo_name" "$destination_dir" || { echo "❌ Failed to clone $repo_name."; exit 1; }
+        try_run gh repo clone "$repo_name" "$destination_dir"
     }
 
-    # Setting up Alacritty themes separately
+    # Setting up Alacritty themes
     echo "Cloning Alacritty themes..."
     mkdir -p "$HOME/.config/alacritty/themes"
     if [ ! -d "$HOME/.config/alacritty/themes/alacritty-theme" ]; then
-        git clone https://github.com/alacritty/alacritty-theme.git "$HOME/.config/alacritty/themes/alacritty-theme"
+        try_run git clone https://github.com/alacritty/alacritty-theme.git "$HOME/.config/alacritty/themes/alacritty-theme"
     else
         echo "Alacritty themes directory already exists. Skipping."
     fi
@@ -153,53 +166,36 @@ clone_user_configs() {
     clone_repo JevonThompsonx/fish "$HOME/.config/fish"
     clone_repo JevonThompsonx/WPs "$HOME/Pictures/WPs"
 
-    echo "✅ System config cloning complete!"
+    echo "✅ System config cloning finished (check logs for any failures)."
 }
 
 # --- Distribution-Specific Setup Functions ---
 
 setup_arch() {
     print_header "Running Arch Linux Setup"
-    sudo pacman -Syu --noconfirm
+    try_run sudo pacman -Syu --noconfirm
 
     echo "Installing packages with pacman..."
-
-    # [IMPROVEMENT] Use an array for the package list for better readability and modification.
     local packages=(
         tree git curl wget gnupg unzip ffmpeg calibre github-cli neovim
         npm zoxide fastfetch foot fish eza tailscale ttf-fira-code
         python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk
         xsel xclip
     )
-
-    # [FIX] Check for an existing Node.js installation before adding it to the list.
     if ! command -v node &> /dev/null; then
-        echo "Node.js not found. Adding 'nodejs' to the installation list."
         packages+=("nodejs")
-    else
-        echo "✅ Node.js is already installed ($(node -v)). Skipping installation to avoid conflicts."
     fi
+    try_run sudo pacman -S --noconfirm --needed --ask 20 "${packages[@]}"
 
-    # The --ask 20 is unusual but respected as user preference.
-    sudo pacman -S --noconfirm --needed --ask 20 "${packages[@]}"
-
-    # --- Omarchy Specific Setup ---
-    # This logic is sound, no changes needed.
+    # Omarchy Specific Setup (interactive, no try_run needed)
     if [ "$ID" == "omarchy" ]; then
         print_header "Omarchy Configuration"
-        echo "Omarchy detected. This script can link your '$HOME/Pictures/WPs' folder"
-        echo "to the system theme directories for custom backgrounds."
-        
-        read -p "Do you want to perform this action? (y/N): " response
-        
+        read -p "Do you want to link wallpapers for Omarchy? (y/N): " response
         if [[ "$response" =~ ^[Yy]$ ]]; then
             OMARCHY_THEME_DIR="$HOME/.config/omarchy/themes"
-            
             if [ -d "$OMARCHY_THEME_DIR" ]; then
-                echo "Linking wallpapers to Omarchy themes..."
                 for theme in "$OMARCHY_THEME_DIR"/*/; do
                     if [ -d "$theme" ]; then
-                        echo "  -> Linking for theme: $(basename "$theme")"
                         rm -rf "$theme/backgrounds"
                         ln -s "$HOME/Pictures/WPs/" "$theme/backgrounds"
                     fi
@@ -208,38 +204,30 @@ setup_arch() {
             else
                 echo "⚠️  Warning: Directory not found, skipping: $OMARCHY_THEME_DIR"
             fi
-        else
-            echo "Skipping Omarchy wallpaper linking."
         fi
     fi
 }
 
 setup_debian() {
     print_header "Running Debian/Ubuntu Setup"
-    sudo apt update
-    sudo apt install -y curl wget gpg git lsb-release # [IMPROVEMENT] ensure lsb-release is present
+    try_run sudo apt update
+    try_run sudo apt install -y curl wget gpg git lsb-release
     
-    # Add external repositories (eza, Tailscale)
     echo "Adding external repositories..."
-    # eza
-    sudo mkdir -p /etc/apt/keyrings
-    wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
+    try_run sudo mkdir -p /etc/apt/keyrings
+    try_run bash -c "wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg"
+    try_run bash -c 'echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list'
     
-    # [FIX] Dynamically get the distro codename instead of hardcoding 'trixie'.
-    local codename
-    codename=$(lsb_release -cs)
+    local codename=$(lsb_release -cs)
     echo "Detected Debian/Ubuntu codename: $codename"
-    
-    # Tailscale
-    curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.noarmor.gpg" | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-    curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.tailscale-keyring.list" | sudo tee /etc/apt/sources.list.d/tailscale.list
+    try_run bash -c "curl -fsSL \"https://pkgs.tailscale.com/stable/debian/${codename}.noarmor.gpg\" | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null"
+    try_run bash -c "curl -fsSL \"https://pkgs.tailscale.com/stable/debian/${codename}.tailscale-keyring.list\" | sudo tee /etc/apt/sources.list.d/tailscale.list"
 
     echo "Updating package list after adding repos..."
-    sudo apt update
+    try_run sudo apt update
     
     echo "Installing packages with apt..."
-    sudo apt install -y \
+    try_run sudo apt install -y \
         extrepo calibre gh neovim nodejs npm zoxide fastfetch foot fish \
         ffmpeg eza tailscale variety fonts-firacode python3 python3-pip \
         python3-venv python3-pynvim golang-go ripgrep lazygit luarocks \
@@ -248,24 +236,24 @@ setup_debian() {
 
 setup_fedora() {
     print_header "Running Fedora Setup"
-    sudo dnf upgrade --refresh -y
+    try_run sudo dnf upgrade --refresh -y
     
-    echo "Enabling third-party repositories (RPM Fusion, GitHub CLI)..."
-    sudo dnf install -y \
+    echo "Enabling third-party repositories..."
+    try_run sudo dnf install -y \
       "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
       "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
-    sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+    try_run sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
     
     echo "Installing packages with dnf..."
-    sudo dnf install -y \
+    try_run sudo dnf install -y \
         git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit \
         foot neovim nodejs npm golang go gh tailscale variety calibre \
         gnome-calendar ffmpeg python3-pip python3-virtualenv python3-neovim \
         luarocks ruby php java-17-openjdk-devel xsel xclip fira-code-fonts
 
     echo "Installing desktop applications via Flatpak..."
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    flatpak install flathub -y \
+    try_run flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    try_run flatpak install flathub -y \
       md.obsidian.Obsidian \
       net.localsend.localsend \
       io.freetubeapp.FreeTube \
@@ -278,7 +266,6 @@ setup_fedora() {
 main() {
     check_dependencies
 
-    # Check for /etc/os-release and source it
     if [ -f /etc/os-release ]; then
         . /etc/os-release
     else
@@ -286,8 +273,6 @@ main() {
         exit 1
     fi
     
-    # Determine the distribution and run the appropriate setup function
-    # ID_LIKE is used to catch derivatives (e.g., Ubuntu for Debian, Garuda for Arch)
     DISTRO_ID="${ID_LIKE:-$ID}"
 
     case "$DISTRO_ID" in
@@ -315,41 +300,41 @@ main() {
     print_header "Setting up services and final configurations"
     
     echo "Enabling and starting Tailscale..."
-    sudo systemctl enable --now tailscaled
-    # Note: `tailscale up` requires interaction. Consider adding `--authkey` for true automation.
-    # For now, this is fine.
+    try_run sudo systemctl enable --now tailscaled
+    echo "Attempting to bring Tailscale up. This may require interactive login."
+    # Note: `tailscale up` is interactive. `try_run` will report success/failure
+    # after the command finishes.
     sudo tailscale up
     
     echo "Updating font cache..."
-    sudo fc-cache -fv
+    try_run sudo fc-cache -fv
     
-    # Clone personal dotfiles
     clone_user_configs
     
-    # Set Fish as the default shell if it isn't already
-    if [[ "$SHELL" != */bin/fish ]]; then
+    # Set Fish as the default shell
+    if [[ "$SHELL" != */bin/fish ]] && command -v fish &> /dev/null; then
         echo "Setting Fish as the default shell. You may be prompted for your password."
-        if chsh -s "$(which fish)"; then
-            echo "Shell changed to Fish. Please log out and back in to see the change."
+        if ! chsh -s "$(which fish)"; then
+             echo "❌ Failed to change shell. Please do it manually with: chsh -s $(which fish)"
         else
-            echo "❌ Failed to change shell. Please do it manually with: chsh -s $(which fish)"
+             echo "Shell changed to Fish. Please log out and back in to see the change."
         fi
     else
-        echo "Fish is already the default shell."
+        echo "Fish is already the default shell or is not installed."
     fi
     
     print_header "Finalizing Neovim Setup"
     echo "Running Neovim in headless mode to sync plugins..."
-    # Execute as the 'fish' shell to ensure it uses the newly configured environment
     if command -v fish &> /dev/null && command -v nvim &> /dev/null; then
-        fish -c "nvim --headless '+Lazy sync' '+qa!'"
+        try_run fish -c "nvim --headless '+Lazy sync' '+qa!'"
     else
         echo "⚠️ Could not find 'fish' or 'nvim' to finalize Neovim setup. Skipping."
     fi
     
     echo ""
     echo "✅ Setup script finished!"
-    echo "Please REBOOT your system for all changes to take full effect."
+    echo "Please review the log for any ❌ failure messages."
+    echo "A REBOOT is recommended for all changes to take full effect."
 }
 
 # Run the main function
