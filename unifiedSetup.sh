@@ -120,6 +120,41 @@ setup_arch() {
         nodejs npm zoxide fastfetch foot fish eza tailscale ttf-fira-code \
         python python-pip go ripgrep lazygit luarocks ruby php jdk17-openjdk \
         xsel xclip
+    # ... (this comes after the 'sudo pacman' command in setup_arch)
+
+    # --- Omarchy Specific Setup ---
+    # Check if the specific distribution ID is 'omarchy'
+    if [ "$ID" == "omarchy" ]; then
+        print_header "Omarchy Configuration"
+        echo "Omarchy detected. This script can link your '$HOME/Pictures/WPs' folder"
+        echo "to the system theme directories for custom backgrounds."
+        
+        # Ask the user for confirmation
+        read -p "Do you want to perform this action? (y/N): " response
+        
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            OMARCHY_THEME_DIR="$HOME/.config/omarchy/themes"
+            
+            if [ -d "$OMARCHY_THEME_DIR" ]; then
+                echo "Linking wallpapers to Omarchy themes..."
+                for theme in "$OMARCHY_THEME_DIR"/*/; do
+                    # Ensure the item is actually a directory
+                    if [ -d "$theme" ]; then
+                        echo "  -> Linking for theme: $(basename "$theme")"
+                        # Remove the existing 'backgrounds' directory to prevent conflicts
+                        rm -rf "$theme/backgrounds"
+                        # Create the symbolic link
+                        ln -s "$HOME/Pictures/WPs/" "$theme/backgrounds"
+                    fi
+                done
+                echo "✅ Wallpaper linking complete."
+            else
+                echo "⚠️  Warning: Directory not found, skipping: $OMARCHY_THEME_DIR"
+            fi
+        else
+            echo "Skipping Omarchy wallpaper linking."
+        fi
+    fi
 }
 
 setup_debian() {
