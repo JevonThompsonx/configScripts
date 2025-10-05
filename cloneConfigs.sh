@@ -1,4 +1,12 @@
 #!/bin/bash
+# Alacritty theme setup
+echo "Setting up Alacritty themes..."
+mkdir -p ~/.config/alacritty/themes
+if [ ! -d "$HOME/.config/alacritty/themes/alacritty-theme" ]; then
+    git clone https://github.com/alacritty/alacritty-theme.git ~/.config/alacritty/themes
+else
+    echo "Alacritty themes already cloned."
+fi
 
 echo "Starting system config cloning"
 
@@ -33,17 +41,11 @@ clone_repo() {
 }
 
 # Clone the repositories
-clone_repo nvim ~/.config/nvim
+rm -rf /home/jevonx/.config/alacritty
 clone_repo alacritty ~/.config/alacritty
 clone_repo fish ~/.config/fish
-clone_repo foot ~/.config/foot
 clone_repo WPs ~/Pictures/WPs
-clone_repo variety ~/.config/variety
-clone_repo fastfetch ~/.config/fastfetch
-clone_repo wofi ~/.config/wofi
-clone_repo hypr ~/.config/hypr
-clone_repo nwg-drawer ~/.config/nwg-drawer
-clone_repo nwg-bar ~/.config/nwg-bar
+
 
 echo "System config cloning complete!"
 exit 0
