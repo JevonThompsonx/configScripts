@@ -6,12 +6,12 @@
 #
 
 # --- Configuration ---
-# Exit immediately if a command exits with a non-zero status.
-set -e
+# Note: We do NOT use 'set -e' to allow the script to continue on non-critical errors
+# Critical errors are handled explicitly with exit statements
 
 # --- Pre-flight Checks ---
 
-# [FIX] Prevent script from being run as root.
+# Prevent script from being run as root.
 if [ "$EUID" -eq 0 ]; then
   echo "❌ This script must not be run as root. Use sudo internally when prompted."
   exit 1
@@ -74,16 +74,22 @@ install_appimages() {
 install_rust() {
     print_header "Installing Rust and Cargo"
     if ! command -v cargo &> /dev/null; then
+        echo "Installing Rust..."
         # The '-y' flag automates the installation
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        
-        # [FIX] Add cargo to the shell profile for persistence.
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> "$HOME/.profile"
-        # Source it for the current session as well.
-        source "$HOME/.cargo/env"
-        echo "Rust installed successfully."
+        if curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
+            # Add cargo to the shell profile for persistence.
+            if ! grep -q 'export PATH="$HOME/.cargo/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
+                echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> "$HOME/.profile"
+            fi
+            # Source it for the current session as well.
+            source "$HOME/.cargo/env"
+            echo "✅ Rust installed successfully."
+        else
+            echo "⚠️  Rust installation failed. Skipping Rust-based tools."
+            return 1
+        fi
     else
-        echo "Rust is already installed. Skipping."
+        echo "✅ Rust is already installed. Skipping."
     fi
 }
 
@@ -91,15 +97,20 @@ install_rust() {
 install_bun() {
     print_header "Installing Bun JavaScript runtime"
     if ! command -v bun &> /dev/null; then
-        curl -fsSL https://bun.sh/install | bash
-        echo "Bun installed successfully."
-        # Note: The script already correctly adds this to .profile.
-        echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.profile"
+        echo "Installing Bun..."
+        if curl -fsSL https://bun.sh/install | bash; then
+            if ! grep -q 'export PATH="$HOME/.bun/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
+                echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.profile"
+            fi
+            echo "✅ Bun installed successfully."
+        else
+            echo "⚠️  Bun installation failed. Continuing anyway..."
+            return 1
+        fi
     else
-        echo "Bun is already installed. Skipping."
+        echo "✅ Bun is already installed. Skipping."
     fi
-    # [IMPROVEMENT] Source the profile to make bun available immediately.
-    # It's better to use the absolute path if we can't guarantee it's in the PATH yet.
+    # Source the profile to make bun available immediately.
     if [ -x "$HOME/.bun/bin/bun" ]; then
         "$HOME/.bun/bin/bun" --version
     fi
@@ -114,30 +125,45 @@ install_common_dev_tools() {
         source "$HOME/.cargo/env"
     fi
 
-    echo "Installing global NPM packages..."
-    
-    # --- FIX: Configure NPM to use a local directory to avoid permission errors ---
-    echo "➡️  Configuring NPM to use a user-local directory..."
-    local NPM_GLOBAL_DIR="$HOME/.npm-global"
-    mkdir -p "$NPM_GLOBAL_DIR"
-    npm config set prefix "$NPM_GLOBAL_DIR"
-    
-    # Add the new path to the current session's PATH so the command works now
-    export PATH="$NPM_GLOBAL_DIR/bin:$PATH"
-    
-    # Ensure the path is added to the shell profile for future sessions
-    if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.profile" &>/dev/null; then
-        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.profile"
-        echo "✅ Added NPM global path to $HOME/.profile for future sessions."
-    fi
-    # --- END FIX ---
+    # Configure NPM to use a local directory to avoid permission errors
+    if command -v npm &> /dev/null; then
+        echo "➡️  Configuring NPM to use a user-local directory..."
+        local NPM_GLOBAL_DIR="$HOME/.npm-global"
+        mkdir -p "$NPM_GLOBAL_DIR"
+        npm config set prefix "$NPM_GLOBAL_DIR"
 
-    # This command will now succeed by installing into the user's home directory
-    npm install -g neovim tree-sitter-cli @tailwindcss/language-server
+        # Add the new path to the current session's PATH so the command works now
+        export PATH="$NPM_GLOBAL_DIR/bin:$PATH"
+
+        # Ensure the path is added to the shell profile for future sessions
+        if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.profile"
+            echo "✅ Added NPM global path to $HOME/.profile for future sessions."
+        fi
+
+        echo "Installing global NPM packages..."
+        # Install packages one by one to continue even if one fails
+        for package in neovim tree-sitter-cli @tailwindcss/language-server; do
+            if npm install -g "$package"; then
+                echo "✅ Installed $package"
+            else
+                echo "⚠️  Failed to install $package, continuing..."
+            fi
+        done
+    else
+        echo "⚠️  NPM not found. Skipping NPM package installation."
+    fi
 
     echo "Installing Rust-based tools with Cargo..."
     if command -v cargo &> /dev/null; then
-        cargo install selene atuin
+        # Install packages one by one to continue even if one fails
+        for crate in selene atuin; do
+            if cargo install "$crate"; then
+                echo "✅ Installed $crate"
+            else
+                echo "⚠️  Failed to install $crate, continuing..."
+            fi
+        done
     else
         echo "⚠️  Cargo not found in PATH. Skipping installation of Rust tools."
     fi
@@ -146,19 +172,27 @@ install_common_dev_tools() {
 # Function to clone personal configuration files
 clone_user_configs() {
     print_header "Cloning user configuration files from GitHub"
-    
-    # [IMPROVEMENT] Check for gh CLI before trying to use it.
+
+    # Check for gh CLI before trying to use it.
     if ! command -v gh &> /dev/null; then
-        echo "❌ GitHub CLI ('gh') not found. It should have been installed by the distro-specific function."
-        exit 1
+        echo "⚠️  GitHub CLI ('gh') not found. Skipping dotfile cloning."
+        echo "    You can manually clone configs later or install gh and re-run."
+        return 1
     fi
+
+    # Change to HOME directory to avoid git permission issues in the current directory
+    local ORIGINAL_DIR="$PWD"
+    cd "$HOME" || { echo "⚠️  Could not change to HOME directory. Skipping config cloning."; return 1; }
 
     echo "Authenticating with GitHub CLI. Please follow the prompts."
     # Use `gh auth status` to check if already logged in.
     if ! gh auth status &> /dev/null; then
+        echo "Attempting GitHub authentication..."
         if ! gh auth login; then
-            echo "❌ GitHub authentication failed. Cannot clone configs."
-            exit 1
+            echo "⚠️  GitHub authentication failed. Skipping dotfile cloning."
+            echo "    You can run 'gh auth login' manually later and clone configs."
+            cd "$ORIGINAL_DIR"
+            return 1
         fi
     else
         echo "✅ Already authenticated with GitHub."
@@ -170,25 +204,40 @@ clone_user_configs() {
     clone_repo() {
         local repo_name="$1"
         local destination_dir="$2"
-        
+
         echo "Setting up repository: $repo_name"
-        # [IMPROVEMENT] Use `mv` for a backup instead of destructive `rm -rf`.
+        # Use `mv` for a backup instead of destructive `rm -rf`.
         if [ -d "$destination_dir" ]; then
             echo "Backing up existing directory: $destination_dir -> ${destination_dir}.bak"
-            mv "$destination_dir" "${destination_dir}.bak.$(date +%s)"
+            if ! mv "$destination_dir" "${destination_dir}.bak.$(date +%s)" 2>/dev/null; then
+                echo "⚠️  Could not backup existing directory. Skipping $repo_name..."
+                return 1
+            fi
         fi
-        
+
+        # Ensure parent directory exists
+        mkdir -p "$(dirname "$destination_dir")"
+
         echo "Cloning $repo_name into $destination_dir..."
-        gh repo clone "$repo_name" "$destination_dir" || { echo "❌ Failed to clone $repo_name."; exit 1; }
+        if gh repo clone "$repo_name" "$destination_dir"; then
+            echo "✅ Successfully cloned $repo_name"
+        else
+            echo "⚠️  Failed to clone $repo_name. Continuing anyway..."
+            return 1
+        fi
     }
 
     # Setting up Alacritty themes separately
     echo "Cloning Alacritty themes..."
     mkdir -p "$HOME/.config/alacritty/themes"
     if [ ! -d "$HOME/.config/alacritty/themes/alacritty-theme" ]; then
-        git clone https://github.com/alacritty/alacritty-theme.git "$HOME/.config/alacritty/themes/alacritty-theme"
+        if git clone https://github.com/alacritty/alacritty-theme.git "$HOME/.config/alacritty/themes/alacritty-theme"; then
+            echo "✅ Alacritty themes cloned successfully"
+        else
+            echo "⚠️  Failed to clone Alacritty themes. Continuing anyway..."
+        fi
     else
-        echo "Alacritty themes directory already exists. Skipping."
+        echo "✅ Alacritty themes directory already exists. Skipping."
     fi
 
     # Clone personal dotfiles
@@ -196,7 +245,10 @@ clone_user_configs() {
     clone_repo JevonThompsonx/fish "$HOME/.config/fish"
     clone_repo JevonThompsonx/WPs "$HOME/Pictures/WPs"
 
-    echo "✅ System config cloning complete!"
+    # Return to original directory
+    cd "$ORIGINAL_DIR"
+
+    echo "✅ Config cloning complete!"
 }
 
 # --- Distribution-Specific Setup Functions ---
@@ -368,42 +420,118 @@ main() {
     install_common_dev_tools
     
     print_header "Setting up services and final configurations"
-    
+
     echo "Enabling and starting Tailscale..."
-    sudo systemctl enable --now tailscaled
-    # Note: `tailscale up` requires interaction. Consider adding `--authkey` for true automation.
-    sudo tailscale up
-    
-    echo "Updating font cache..."
-    sudo fc-cache -fv
-    
-    # Clone personal dotfiles
-    clone_user_configs
-    
-    # Set Fish as the default shell if it isn't already
-    if [[ "$SHELL" != */bin/fish ]]; then
-        echo "Setting Fish as the default shell. You may be prompted for your password."
-        if chsh -s "$(which fish)"; then
-            echo "Shell changed to Fish. Please log out and back in to see the change."
+    if command -v tailscale &> /dev/null; then
+        if sudo systemctl enable --now tailscaled 2>/dev/null; then
+            echo "✅ Tailscaled service enabled and started"
+            # Note: `tailscale up` requires interaction and may disconnect SSH
+            echo "Starting Tailscale (this may require interaction)..."
+            if sudo tailscale up; then
+                echo "✅ Tailscale connected"
+            else
+                echo "⚠️  Tailscale up failed or was cancelled. You can run 'sudo tailscale up' manually later."
+            fi
         else
-            echo "❌ Failed to change shell. Please do it manually with: chsh -s $(which fish)"
+            echo "⚠️  Failed to enable tailscaled service. You may need to do this manually."
         fi
     else
-        echo "Fish is already the default shell."
+        echo "⚠️  Tailscale not found. Skipping Tailscale setup."
     fi
-    
+
+    echo "Updating font cache..."
+    if command -v fc-cache &> /dev/null; then
+        if sudo fc-cache -fv &> /dev/null; then
+            echo "✅ Font cache updated"
+        else
+            echo "⚠️  Font cache update had issues, but continuing..."
+        fi
+    else
+        echo "⚠️  fc-cache not found. Skipping font cache update."
+    fi
+
+    # Clone personal dotfiles
+    clone_user_configs
+
+    # Set Fish as the default shell if it isn't already
+    if command -v fish &> /dev/null; then
+        if [[ "$SHELL" != */fish ]]; then
+            echo "Setting Fish as the default shell. You may be prompted for your password."
+            local FISH_PATH
+            FISH_PATH="$(which fish)"
+            if chsh -s "$FISH_PATH"; then
+                echo "✅ Shell changed to Fish. Please log out and back in to see the change."
+            else
+                echo "⚠️  Failed to change shell. You can do it manually with: chsh -s $FISH_PATH"
+            fi
+        else
+            echo "✅ Fish is already the default shell."
+        fi
+    else
+        echo "⚠️  Fish shell not found. Skipping shell change."
+    fi
+
     print_header "Finalizing Neovim Setup"
     echo "Running Neovim in headless mode to sync plugins..."
     # Execute as the 'fish' shell to ensure it uses the newly configured environment
-    if command -v fish &> /dev/null && command -v nvim &> /dev/null; then
-        fish -c "nvim --headless '+Lazy sync' '+qa!'"
+    if command -v nvim &> /dev/null; then
+        if command -v fish &> /dev/null; then
+            if fish -c "nvim --headless '+Lazy sync' '+qa!'" 2>/dev/null; then
+                echo "✅ Neovim plugins synced successfully"
+            else
+                echo "⚠️  Neovim plugin sync had issues. You can run ':Lazy sync' manually in nvim."
+            fi
+        else
+            echo "⚠️  Fish not found, trying with bash..."
+            if nvim --headless '+Lazy sync' '+qa!' 2>/dev/null; then
+                echo "✅ Neovim plugins synced successfully"
+            else
+                echo "⚠️  Neovim plugin sync had issues. You can run ':Lazy sync' manually in nvim."
+            fi
+        fi
     else
-        echo "⚠️ Could not find 'fish' or 'nvim' to finalize Neovim setup. Skipping."
+        echo "⚠️  Neovim not found. Skipping plugin sync."
     fi
-    
+
+    # Optional: Configure power management for Surface devices
+    print_header "Optional: Power Management Configuration"
+    echo "This setup includes a power management script for Microsoft Surface devices"
+    echo "that disables sleep, suspend, and various power-saving features to keep"
+    echo "the device online 24/7."
     echo ""
+    read -p "Are you running this on a Microsoft Surface device? (y/N): " is_surface
+
+    if [[ "$is_surface" =~ ^[Yy]$ ]]; then
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [ -f "$SCRIPT_DIR/surfacePowerManagement.sh" ]; then
+            echo "Running Surface power management configuration..."
+            if bash "$SCRIPT_DIR/surfacePowerManagement.sh"; then
+                echo "✅ Power management configured successfully"
+            else
+                echo "⚠️  Power management script encountered errors. Check the output above."
+            fi
+        else
+            echo "⚠️  surfacePowerManagement.sh not found in $SCRIPT_DIR"
+            echo "    You can run it manually if you find it."
+        fi
+    else
+        echo "Skipping Surface-specific power management configuration."
+    fi
+
+    echo ""
+    echo "=========================================="
     echo "✅ Setup script finished!"
-    echo "Please REBOOT your system for all changes to take full effect."
+    echo "=========================================="
+    echo ""
+    echo "IMPORTANT NEXT STEPS:"
+    echo "1. REBOOT your system for all changes to take full effect"
+    echo "2. After reboot, verify Fish shell is active: echo \$SHELL"
+    echo "3. If Tailscale didn't connect, run: sudo tailscale up"
+    echo "4. If configs weren't cloned, authenticate and clone manually:"
+    echo "   gh auth login"
+    echo "   (then clone repos as needed)"
+    echo "5. Launch Neovim and run :Lazy sync if plugins aren't loaded"
+    echo ""
 }
 
 # Run the main function
