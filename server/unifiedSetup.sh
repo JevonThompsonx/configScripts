@@ -146,6 +146,61 @@ install_common_dev_tools() {
     fi
 }
 
+# Function to setup LazyVim
+setup_lazyvim() {
+    print_header "Setting up LazyVim"
+
+    local nvim_config="$HOME/.config/nvim"
+    local nvim_share="$HOME/.local/share/nvim"
+    local nvim_state="$HOME/.local/state/nvim"
+    local nvim_cache="$HOME/.cache/nvim"
+
+    # Check if LazyVim is already installed
+    if [ -d "$nvim_config" ] && [ -f "$nvim_config/lua/config/lazy.lua" ]; then
+        echo "LazyVim appears to be already installed. Skipping setup."
+        return 0
+    fi
+
+    echo "Backing up existing Neovim directories..."
+    local timestamp
+    timestamp=$(date +%s)
+
+    # Backup directories if they exist
+    for dir in "$nvim_config" "$nvim_share" "$nvim_state" "$nvim_cache"; do
+        if [ -d "$dir" ]; then
+            local backup="${dir}.bak.${timestamp}"
+            if mv "$dir" "$backup"; then
+                echo "✅ Backed up $(basename "$dir") to ${backup}"
+            else
+                echo "⚠️  Failed to backup $dir. You may need to manually backup and remove it."
+                return 1
+            fi
+        fi
+    done
+
+    echo "Cloning LazyVim starter template..."
+    if git clone https://github.com/LazyVim/starter "$nvim_config"; then
+        echo "✅ LazyVim starter cloned successfully"
+
+        # Remove .git folder so user can add it to their own repo
+        echo "Removing .git folder from LazyVim starter..."
+        if rm -rf "$nvim_config/.git"; then
+            echo "✅ Removed .git folder"
+        else
+            echo "⚠️  Failed to remove .git folder, but continuing..."
+        fi
+
+        echo "✅ LazyVim setup complete!"
+        echo "    Plugins will be automatically installed when you first run Neovim."
+        echo "    Run ':LazyHealth' after installation to verify everything works."
+    else
+        echo "⚠️  Failed to clone LazyVim starter. Skipping LazyVim setup."
+        echo "    You can manually install later with:"
+        echo "    git clone https://github.com/LazyVim/starter ~/.config/nvim"
+        return 1
+    fi
+}
+
 # Function to clone personal configuration files
 clone_user_configs() {
     print_header "Cloning user configuration files from GitHub"
@@ -227,7 +282,7 @@ setup_arch() {
         tree git curl wget gnupg unzip ffmpeg github-cli neovim
         npm zoxide fastfetch fish eza tailscale
         python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk
-        xsel xclip # xsel/xclip for server clipboard over SSH/tmux
+        xsel xclip clamav # xsel/xclip for server clipboard, clamav for malware scanning
     )
     
     # Pruned packages for headless:
@@ -279,7 +334,7 @@ setup_debian() {
         extrepo gh neovim nodejs npm zoxide fastfetch fish \
         ffmpeg eza tailscale python3 python3-pip \
         python3-venv python3-pynvim golang-go ripgrep lazygit luarocks \
-        ruby-full php openjdk-17-jdk xsel xclip # xsel/xclip for server clipboard over SSH/tmux
+        ruby-full php openjdk-17-jdk xsel xclip clamav clamav-daemon # xsel/xclip for server clipboard, clamav for malware scanning
     
     # Pruned packages for headless:
     # Removed: calibre (GUI e-reader), foot (terminal emulator), variety (wallpaper setter), fonts-firacode (fonts), gnome-calendar (GUI), appimagelauncher (GUI)
@@ -302,7 +357,7 @@ setup_fedora() {
         git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit \
         neovim nodejs npm golang go gh tailscale \
         ffmpeg python3-pip python3-virtualenv python3-neovim \
-        luarocks ruby php java-17-openjdk-devel xsel xclip # xsel/xclip for server clipboard over SSH/tmux
+        luarocks ruby php java-17-openjdk-devel xsel xclip clamav clamav-update # xsel/xclip for server clipboard, clamav for malware scanning
 
     # Pruned packages for headless:
     # Removed: foot (terminal emulator), variety (wallpaper setter), calibre (GUI e-reader), gnome-calendar (GUI), fira-code-fonts (fonts), appimagelauncher (GUI)
@@ -373,7 +428,10 @@ main() {
 
     # Clone personal dotfiles
     clone_user_configs
-    
+
+    # Setup LazyVim
+    setup_lazyvim
+
     # Set Fish as the default shell if it isn't already
     if command -v fish &> /dev/null; then
         if [[ "$SHELL" != */fish ]]; then
@@ -461,6 +519,8 @@ main() {
     echo "4. If configs weren't cloned, authenticate and clone manually:"
     echo "   gh auth login"
     echo "   gh repo clone JevonThompsonx/fish ~/.config/fish"
+    echo "5. Launch Neovim - LazyVim will auto-install plugins on first run"
+    echo "6. Run ':LazyHealth' in Neovim to verify everything is working"
     echo ""
 }
 

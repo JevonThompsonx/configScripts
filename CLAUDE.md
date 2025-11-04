@@ -41,8 +41,9 @@ Both setup scripts follow this execution order:
 4. Development tools via Cargo and NPM
 5. Service configuration (Tailscale)
 6. Personal dotfiles cloning (via GitHub CLI)
-7. Shell configuration (Fish shell)
-8. Neovim plugin sync
+7. LazyVim setup (Neovim distribution)
+8. Shell configuration (Fish shell)
+9. Neovim plugin sync
 
 ## Key Scripts
 
@@ -64,6 +65,14 @@ Both setup scripts follow this execution order:
 
 - **`server/cloudflareIPsInteractive.sh`** - Interactive UFW rule creator for Cloudflare IP ranges
 - **`server/cloudflareIPscustom.sh`** - Presumably custom/non-interactive version
+
+### Security Scripts
+
+- **`clamav-scan.sh`** - Deep scan script with Telegram notifications (full system scan, 1-4 hours)
+- **`clamav-scan-fast.sh`** - Fast scan script with Telegram notifications (critical directories, 5-30 min)
+- **`setup-clamav-cronjob.sh`** - Interactive setup for automated ClamAV scanning
+- **`example.env`** - Template for Telegram bot credentials and scan configuration
+- **`CLAMAV-README.md`** - Complete documentation for ClamAV setup
 
 ## Personal Configuration Repositories
 
@@ -98,6 +107,7 @@ The scripts clone these GitHub repositories for dotfiles:
 - ffmpeg
 
 **Neovim Ecosystem:**
+- LazyVim distribution (Neovim configuration framework)
 - Tree-sitter CLI
 - Language servers: Tailwind CSS LSS
 - Linters: Selene (Lua)
@@ -115,6 +125,98 @@ Installed to `~/.npm-global` to avoid permission issues:
 
 - `selene` - Lua linter
 - `atuin` - Shell history sync tool
+
+## Security: ClamAV Malware Scanning
+
+Both `unifiedSetup.sh` and `server/unifiedSetup.sh` now install ClamAV for malware protection. After running the unified setup, configure automated scanning with Telegram notifications.
+
+### Dual-Scan Architecture
+
+**Fast Scan (5:00 AM):**
+- Quick morning check of critical directories
+- Scans: `~/Documents`, `~/Downloads`, `~/Desktop`, `~/scripts`
+- Excludes: caches, build artifacts, `.git`, `node_modules`
+- Runtime: 5-30 minutes
+- Skips virus database update (uses evening's update)
+
+**Deep Scan (8:00 PM):**
+- Full system scan
+- Scans: Entire `/home` directory (configurable)
+- Updates virus database before scanning
+- Runtime: 1-4 hours
+- Comprehensive malware detection
+
+### Quick Setup (New System)
+
+```bash
+# 1. ClamAV is already installed by unified setup scripts
+
+# 2. Run the ClamAV setup
+cd ~/scripts/configScripts
+bash setup-clamav-cronjob.sh
+
+# 3. Choose "Dual Scan" mode
+# 4. Accept defaults (5 AM fast, 8 PM deep)
+# 5. Test notification in Telegram
+```
+
+### Telegram Bot Configuration
+
+The setup requires a Telegram bot for notifications:
+1. Create bot: Message @BotFather in Telegram, send `/newbot`
+2. Get Chat ID: Message @userinfobot to get your user ID
+3. Configure: Credentials stored in `~/.clamav-telegram.env` (secured with 600 permissions)
+
+### Configuration Files
+
+- `~/.clamav-telegram.env` - Bot credentials and scan directories (user-specific, not in git)
+- `example.env` - Template for new systems
+- `~/.clamav-logs/` - Scan logs and reports (auto-cleaned after 30 days)
+
+### Notification Format
+
+Telegram notifications include:
+- Scan type indicator (⚡ Fast or 🔍 Deep)
+- Hostname and timestamp
+- Files/directories scanned count
+- Threat detection (✅ Clean or 🚨 Infected)
+- Scan duration
+- Infected file list (if any threats found)
+
+### Manual Operations
+
+```bash
+# Run scans manually
+bash ~/scripts/configScripts/clamav-scan-fast.sh  # Fast scan
+bash ~/scripts/configScripts/clamav-scan.sh       # Deep scan
+
+# View scheduled scans
+crontab -l | grep clamav
+
+# Update virus database
+sudo freshclam
+
+# Check logs
+ls -lh ~/.clamav-logs/
+grep "FOUND" ~/.clamav-logs/*.log  # Check for threats
+```
+
+### Distribution-Specific Installation
+
+The unified setup scripts handle ClamAV installation per distribution:
+- **Arch**: `clamav` package
+- **Debian/Ubuntu**: `clamav clamav-daemon` packages
+- **Fedora**: `clamav clamav-update` packages
+
+### Security Notes
+
+- `.env` file permissions: 600 (owner read/write only)
+- Bot token is sensitive - never commit to git
+- Logs contain file paths - secure appropriately
+- Scans run with sudo (required for full system access)
+- Database updates happen during deep scan only
+
+See `CLAMAV-README.md` for complete documentation.
 
 ## Testing Scripts
 
@@ -143,6 +245,31 @@ bash server/cloudflareIPsInteractive.sh
 # Enter port numbers when prompted, then reload UFW:
 sudo ufw reload
 ```
+
+## LazyVim Setup
+
+Both unified scripts now automatically install LazyVim, a modern Neovim distribution built on the Lazy plugin manager.
+
+### Setup Process
+
+The `setup_lazyvim()` function:
+1. Checks if LazyVim is already installed by looking for `~/.config/nvim/lua/config/lazy.lua`
+2. Backs up existing Neovim directories with timestamps:
+   - `~/.config/nvim` → `~/.config/nvim.bak.<timestamp>`
+   - `~/.local/share/nvim` → `~/.local/share/nvim.bak.<timestamp>`
+   - `~/.local/state/nvim` → `~/.local/state/nvim.bak.<timestamp>`
+   - `~/.cache/nvim` → `~/.cache/nvim.bak.<timestamp>`
+3. Clones the LazyVim starter template from `https://github.com/LazyVim/starter`
+4. Removes the `.git` folder so you can add it to your own repository
+5. On first launch, Neovim automatically installs all plugins
+
+### Usage Notes
+
+- The script installs the vanilla LazyVim starter template
+- Plugins auto-install on first Neovim launch
+- Run `:LazyHealth` after first launch to verify everything works
+- To customize LazyVim, edit files in `~/.config/nvim/lua/`
+- See LazyVim docs at https://www.lazyvim.org for configuration options
 
 ## Script Safety Features
 
@@ -200,7 +327,10 @@ install_rust() {
 
 After running setup scripts, these require manual configuration:
 
-1. **Neovim**: Run `:Lazy sync` to update plugins (scripts attempt this automatically)
+1. **Neovim/LazyVim**:
+   - Launch Neovim - plugins will auto-install on first run
+   - Run `:LazyHealth` to verify everything is working correctly
+   - The scripts automatically install the LazyVim starter template
 2. **Atuin**: Login with `atuin login -u Jevonx && atuin sync`
 3. **Tailscale**: Complete authentication with `sudo tailscale up`
 4. **GNOME Calendar**: Add Nextcloud calendar accounts manually (desktop only)
