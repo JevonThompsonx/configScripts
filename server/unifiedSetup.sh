@@ -357,7 +357,7 @@ setup_fedora() {
         git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit \
         neovim nodejs npm golang go gh tailscale \
         ffmpeg python3-pip python3-virtualenv python3-neovim \
-        luarocks ruby php java-17-openjdk-devel xsel xclip clamav clamav-update # xsel/xclip for server clipboard, clamav for malware scanning
+        luarocks ruby php java-17-openjdk-devel xsel xclip clamav clamav-update clamd # xsel/xclip for server clipboard, clamav with daemon for malware scanning
 
     # Pruned packages for headless:
     # Removed: foot (terminal emulator), variety (wallpaper setter), calibre (GUI e-reader), gnome-calendar (GUI), fira-code-fonts (fonts), appimagelauncher (GUI)

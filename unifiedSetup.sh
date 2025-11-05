@@ -422,7 +422,7 @@ setup_fedora() {
         foot neovim nodejs npm golang go gh tailscale variety calibre \
         gnome-calendar ffmpeg python3-pip python3-virtualenv python3-neovim \
         luarocks ruby php java-17-openjdk-devel xsel xclip fira-code-fonts \
-        appimagelauncher clamav clamav-update # <-- ADDED ClamAV for malware scanning
+        appimagelauncher clamav clamav-update clamd # <-- ClamAV with daemon for malware scanning
 
     echo "Installing desktop applications via Flatpak..."
     flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo

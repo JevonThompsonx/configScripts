@@ -97,9 +97,12 @@ echo "=========================================="
 echo "Started at: $(date)"
 echo ""
 
+# Get hostname reliably early for notifications
+HOSTNAME=$(hostname -f 2>/dev/null || hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "unknown")
+
 # Send start notification
 send_telegram_message "⚡ <b>ClamAV Fast Scan Started</b>
-Host: $(hostname)
+Host: $HOSTNAME
 Scan Type: Quick scan (critical directories only)
 Time: $(date '+%Y-%m-%d %H:%M:%S')"
 
@@ -128,15 +131,37 @@ EXCLUDE_ARGS=(
     "--exclude-dir=\.local/share/Trash"
 )
 
+# Determine which scanner to use
+USE_CLAMDSCAN="${USE_CLAMDSCAN:-false}"
+if [ "$USE_CLAMDSCAN" = "true" ] && command -v clamdscan &> /dev/null; then
+    SCANNER="clamdscan"
+    echo "Using clamdscan (daemon mode) for faster scanning"
+else
+    SCANNER="sudo clamscan"
+    echo "Using clamscan (standard mode)"
+fi
+
 # Scan each target directory
 TOTAL_SCANNED=0
 for target in $FAST_SCAN_TARGETS; do
     if [ -d "$target" ]; then
         echo "Scanning: $target"
-        if sudo clamscan -r -i "${EXCLUDE_ARGS[@]}" -l "$SCAN_LOG" "$target" 2>&1 | tee -a "$SCAN_LOG"; then
-            :
+        # Note: Removed -i flag to get full output including summary stats
+        if [ "$SCANNER" = "clamdscan" ]; then
+            # clamdscan doesn't support --exclude-dir, but it's much faster
+            # and works through the daemon
+            if $SCANNER --multiscan "$target" 2>&1 | tee -a "$SCAN_LOG"; then
+                :
+            else
+                echo "⚠️  Scan of $target completed with warnings"
+            fi
         else
-            echo "⚠️  Scan of $target completed with warnings"
+            # clamscan with exclusions
+            if $SCANNER -r "${EXCLUDE_ARGS[@]}" "$target" 2>&1 | tee -a "$SCAN_LOG"; then
+                :
+            else
+                echo "⚠️  Scan of $target completed with warnings"
+            fi
         fi
     else
         echo "⚠️  Directory not found, skipping: $target"
@@ -146,14 +171,28 @@ done
 SCAN_END_TIME=$(date +%s)
 SCAN_DURATION=$((SCAN_END_TIME - SCAN_START_TIME))
 SCAN_DURATION_MIN=$((SCAN_DURATION / 60))
+if [ "$SCAN_DURATION_MIN" -eq 0 ] && [ "$SCAN_DURATION" -gt 0 ]; then
+    SCAN_DURATION_MIN="<1"
+fi
 
 echo ""
 echo "Fast scan completed in ${SCAN_DURATION_MIN} minutes"
 
-# Parse scan results
+# Parse scan results - try multiple patterns for better compatibility
 INFECTED_COUNT=$(grep -c "FOUND" "$SCAN_LOG" 2>/dev/null || echo "0")
-SCANNED_FILES=$(grep "Scanned files:" "$SCAN_LOG" | tail -1 | awk '{print $3}' || echo "Unknown")
-SCANNED_DIRS=$(grep "Scanned directories:" "$SCAN_LOG" | tail -1 | awk '{print $3}' || echo "Unknown")
+
+# Try multiple parsing methods for scan statistics
+SCANNED_FILES=$(grep -E "Scanned files:|Known viruses:" "$SCAN_LOG" | grep "Scanned files:" | tail -1 | awk '{print $3}' 2>/dev/null)
+if [ -z "$SCANNED_FILES" ]; then
+    SCANNED_FILES=$(grep -oP "Scanned files: \K\d+" "$SCAN_LOG" | tail -1 2>/dev/null || echo "0")
+fi
+[ -z "$SCANNED_FILES" ] && SCANNED_FILES="0"
+
+SCANNED_DIRS=$(grep "Scanned directories:" "$SCAN_LOG" | tail -1 | awk '{print $3}' 2>/dev/null)
+if [ -z "$SCANNED_DIRS" ]; then
+    SCANNED_DIRS=$(grep -oP "Scanned directories: \K\d+" "$SCAN_LOG" | tail -1 2>/dev/null || echo "0")
+fi
+[ -z "$SCANNED_DIRS" ] && SCANNED_DIRS="0"
 
 # Extract infected files if any
 if [ "$INFECTED_COUNT" -gt 0 ]; then
@@ -164,7 +203,7 @@ fi
 if [ "$INFECTED_COUNT" -gt 0 ]; then
     SUMMARY_MESSAGE="🚨 <b>ClamAV Fast Scan Complete - THREATS FOUND</b>
 
-Host: $(hostname)
+Host: $HOSTNAME
 Scan Type: Fast Scan (critical directories)
 Duration: ${SCAN_DURATION_MIN} minutes
 
@@ -185,12 +224,12 @@ Time: $(date '+%Y-%m-%d %H:%M:%S')
 
     # Send infected files log
     if [ -f "$INFECTED_LOG" ]; then
-        send_telegram_file "$INFECTED_LOG" "Infected files found in fast scan on $(hostname)"
+        send_telegram_file "$INFECTED_LOG" "Infected files found in fast scan on $HOSTNAME"
     fi
 else
     SUMMARY_MESSAGE="✅ <b>ClamAV Fast Scan Complete - Clean</b>
 
-Host: $(hostname)
+Host: $HOSTNAME
 Scan Type: Fast Scan (critical directories)
 Duration: ${SCAN_DURATION_MIN} minutes
 

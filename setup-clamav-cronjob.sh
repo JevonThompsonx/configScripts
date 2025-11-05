@@ -47,6 +47,66 @@ fi
 
 echo "✅ ClamAV is installed"
 
+# Check if cron is installed
+if ! command -v crontab &> /dev/null; then
+    echo "❌ Error: cron is not installed!"
+    echo ""
+
+    # Detect distribution and suggest installation
+    if [ -f /etc/os-release ]; then
+        # shellcheck source=/dev/null
+        . /etc/os-release
+        DISTRO_ID="${ID_LIKE:-$ID}"
+
+        case "$DISTRO_ID" in
+            *arch*)
+                echo "Install with: sudo pacman -S cronie"
+                echo "Enable with:  sudo systemctl enable --now cronie"
+                ;;
+            *debian* | *ubuntu*)
+                echo "Install with: sudo apt install cron"
+                echo "Enable with:  sudo systemctl enable --now cron"
+                ;;
+            *fedora*)
+                echo "Install with: sudo dnf install cronie"
+                echo "Enable with:  sudo systemctl enable --now crond"
+                ;;
+            *)
+                echo "Please install cron/cronie for your distribution"
+                ;;
+        esac
+    fi
+
+    echo ""
+    read -p "Do you want to install cron now? (y/N): " install_cron
+
+    if [[ "$install_cron" =~ ^[Yy]$ ]]; then
+        case "$DISTRO_ID" in
+            *arch*)
+                sudo pacman -S --noconfirm cronie && sudo systemctl enable --now cronie
+                ;;
+            *debian* | *ubuntu*)
+                sudo apt install -y cron && sudo systemctl enable --now cron
+                ;;
+            *fedora*)
+                sudo dnf install -y cronie && sudo systemctl enable --now crond
+                ;;
+        esac
+
+        if command -v crontab &> /dev/null; then
+            echo "✅ Cron installed successfully"
+        else
+            echo "❌ Failed to install cron. Please install manually and re-run this script."
+            exit 1
+        fi
+    else
+        echo "Cannot proceed without cron. Exiting."
+        exit 1
+    fi
+else
+    echo "✅ Cron is installed"
+fi
+
 # Check if scan script exists
 if [ ! -f "$SCAN_SCRIPT" ]; then
     echo "❌ Error: Scan script not found at $SCAN_SCRIPT"
@@ -196,6 +256,308 @@ case "$DISTRO_ID" in
         echo "⚠️  Warning: Unsupported distribution. Continuing with generic setup..."
         ;;
 esac
+
+# --- Clamd Daemon Setup ---
+
+print_header "Configuring ClamAV Daemon (clamd)"
+
+echo "Clamd is the ClamAV daemon that:"
+echo "  - Keeps virus signatures loaded in memory for faster scanning"
+echo "  - Provides on-demand scanning via socket"
+echo "  - Can be used by other applications"
+echo ""
+echo "Benefits:"
+echo "  - 10-50x faster scanning compared to clamscan"
+echo "  - Lower CPU usage for frequent scans"
+echo "  - Recommended for servers and regular scanning"
+echo ""
+
+# Check if clamd is installed
+if command -v clamd &> /dev/null || command -v clamdscan &> /dev/null; then
+    echo "✅ Clamd appears to be installed"
+else
+    echo "⚠️  Clamd not found. It should be installed with clamav."
+    echo "    Install it with:"
+    case "$DISTRO_ID" in
+        *arch*)
+            echo "    sudo pacman -S clamav (includes clamd)"
+            ;;
+        *debian* | *ubuntu*)
+            echo "    sudo apt install clamav-daemon"
+            ;;
+        *fedora*)
+            echo "    sudo dnf install clamd"
+            ;;
+    esac
+    echo ""
+fi
+
+read -p "Enable and configure clamd daemon? (Y/n): " enable_clamd
+
+if [[ ! "$enable_clamd" =~ ^[Nn]$ ]]; then
+    echo ""
+    echo "Configuring clamd..."
+
+    # Distribution-specific clamd setup
+    case "$DISTRO_ID" in
+        *arch*)
+            # Arch Linux
+            if systemctl list-unit-files | grep -q "clamav-daemon.service"; then
+                if sudo systemctl enable clamav-daemon 2>/dev/null; then
+                    echo "✅ Clamd service enabled"
+                fi
+                if sudo systemctl start clamav-daemon 2>/dev/null; then
+                    echo "✅ Clamd service started"
+                else
+                    echo "⚠️  Clamd service failed to start, check: systemctl status clamav-daemon"
+                fi
+            else
+                echo "⚠️  clamav-daemon.service not found"
+            fi
+            ;;
+
+        *debian* | *ubuntu*)
+            # Debian/Ubuntu
+            if systemctl list-unit-files | grep -q "clamav-daemon.service"; then
+                if sudo systemctl enable clamav-daemon 2>/dev/null; then
+                    echo "✅ Clamd service enabled"
+                fi
+                if sudo systemctl start clamav-daemon 2>/dev/null; then
+                    echo "✅ Clamd service started"
+                else
+                    echo "⚠️  Clamd service failed to start, check: systemctl status clamav-daemon"
+                fi
+            else
+                echo "⚠️  clamav-daemon.service not found"
+            fi
+            ;;
+
+        *fedora*)
+            # Fedora
+            if systemctl list-unit-files | grep -q "clamd@"; then
+                # Fedora uses clamd@scan.service
+                if sudo systemctl enable clamd@scan 2>/dev/null; then
+                    echo "✅ Clamd service enabled"
+                fi
+                if sudo systemctl start clamd@scan 2>/dev/null; then
+                    echo "✅ Clamd service started"
+                else
+                    echo "⚠️  Clamd service failed to start, check: systemctl status clamd@scan"
+                fi
+            else
+                echo "⚠️  clamd@scan.service not found"
+            fi
+            ;;
+    esac
+
+    # Wait a moment for daemon to initialize
+    sleep 2
+
+    # Verify clamd is running
+    if pgrep -x "clamd" > /dev/null || pgrep -x "clamav-daemon" > /dev/null; then
+        echo "✅ Clamd daemon is running"
+
+        # Test clamdscan
+        if command -v clamdscan &> /dev/null; then
+            echo ""
+            echo "Testing clamdscan..."
+            if echo "test" | clamdscan - > /dev/null 2>&1; then
+                echo "✅ Clamdscan is working!"
+
+                # Offer to use clamdscan in scan scripts
+                echo ""
+                echo "Would you like to use clamdscan (faster) instead of clamscan in your scan scripts?"
+                echo "This is recommended for better performance."
+                read -p "Use clamdscan? (Y/n): " use_clamdscan
+
+                if [[ ! "$use_clamdscan" =~ ^[Nn]$ ]]; then
+                    # Create/update a config flag for scan scripts
+                    if grep -q "^USE_CLAMDSCAN=" "$ENV_FILE" 2>/dev/null; then
+                        sed -i 's/^USE_CLAMDSCAN=.*/USE_CLAMDSCAN=true/' "$ENV_FILE"
+                    else
+                        echo "" >> "$ENV_FILE"
+                        echo "# Use clamdscan (daemon) instead of clamscan for faster scanning" >> "$ENV_FILE"
+                        echo "USE_CLAMDSCAN=true" >> "$ENV_FILE"
+                    fi
+                    echo "✅ Configured to use clamdscan"
+                else
+                    if grep -q "^USE_CLAMDSCAN=" "$ENV_FILE" 2>/dev/null; then
+                        sed -i 's/^USE_CLAMDSCAN=.*/USE_CLAMDSCAN=false/' "$ENV_FILE"
+                    fi
+                    echo "Will continue using clamscan"
+                fi
+            else
+                echo "⚠️  Clamdscan test failed"
+            fi
+        fi
+    else
+        echo "⚠️  Clamd daemon not running"
+        echo "    Check status: systemctl status clamav-daemon (or clamd@scan on Fedora)"
+    fi
+else
+    echo "Skipping clamd configuration"
+fi
+
+# --- Passwordless Sudo Setup ---
+
+print_header "Configuring Passwordless Sudo for ClamAV"
+
+echo "For automated cronjobs to work, ClamAV commands need to run without password prompts."
+echo "This will configure sudo to allow passwordless execution of:"
+echo "  - clamscan (virus scanning)"
+echo "  - freshclam (database updates)"
+echo ""
+read -p "Configure passwordless sudo for ClamAV? (Y/n): " setup_sudo
+
+if [[ ! "$setup_sudo" =~ ^[Nn]$ ]]; then
+    CURRENT_USER="$USER"
+    SUDOERS_FILE="/etc/sudoers.d/clamav-${CURRENT_USER}"
+
+    # Find clamscan, clamdscan and freshclam paths
+    CLAMSCAN_PATH=$(which clamscan 2>/dev/null || echo "/usr/bin/clamscan")
+    CLAMDSCAN_PATH=$(which clamdscan 2>/dev/null || echo "/usr/bin/clamdscan")
+    FRESHCLAM_PATH=$(which freshclam 2>/dev/null || echo "/usr/bin/freshclam")
+
+    # Create the sudoers content
+    SUDOERS_CONTENT="# ClamAV passwordless sudo for user: $CURRENT_USER
+# Created by setup-clamav-cronjob.sh on $(date)
+# Allows automated virus scanning via cronjobs
+
+# Allow clamscan without password
+$CURRENT_USER ALL=(root) NOPASSWD: $CLAMSCAN_PATH
+
+# Allow clamdscan (daemon scanner) without password
+$CURRENT_USER ALL=(root) NOPASSWD: $CLAMDSCAN_PATH
+
+# Allow freshclam without password
+$CURRENT_USER ALL=(root) NOPASSWD: $FRESHCLAM_PATH
+"
+
+    # Create temporary file
+    TEMP_FILE=$(mktemp)
+    echo "$SUDOERS_CONTENT" > "$TEMP_FILE"
+
+    # Validate the sudoers syntax
+    if sudo visudo -cf "$TEMP_FILE"; then
+        # Install the sudoers file
+        if sudo cp "$TEMP_FILE" "$SUDOERS_FILE" && sudo chmod 0440 "$SUDOERS_FILE"; then
+            echo "✅ Passwordless sudo configured"
+        else
+            echo "⚠️  Failed to install sudoers file, continuing anyway..."
+        fi
+    else
+        echo "⚠️  Sudoers syntax validation failed, skipping passwordless sudo setup"
+    fi
+
+    rm -f "$TEMP_FILE"
+else
+    echo "⚠️  Skipping passwordless sudo setup"
+    echo "    Note: Cronjobs will fail without this configuration!"
+fi
+
+# --- Third-Party Virus Database Setup ---
+
+print_header "Third-Party Virus Database Configuration"
+
+echo "ClamAV can use additional virus signature databases from trusted third parties."
+echo "This significantly improves detection rates beyond the official ClamAV database."
+echo ""
+echo "Available options:"
+echo "  1. clamav-unofficial-sigs - Free signatures from Sanesecurity, MalwarePatrol, and more"
+echo "  2. Skip (use only official ClamAV databases)"
+echo ""
+read -p "Install third-party signatures? (1=Yes, 2=Skip): " install_thirdparty
+
+if [ "$install_thirdparty" == "1" ]; then
+    echo ""
+    echo "Installing clamav-unofficial-sigs..."
+
+    case "$DISTRO_ID" in
+        *arch*)
+            # Check if available in AUR
+            if command -v yay &> /dev/null; then
+                if yay -S --noconfirm clamav-unofficial-sigs; then
+                    echo "✅ Installed via AUR"
+                else
+                    echo "⚠️  AUR installation failed"
+                fi
+            elif command -v paru &> /dev/null; then
+                if paru -S --noconfirm clamav-unofficial-sigs; then
+                    echo "✅ Installed via AUR"
+                else
+                    echo "⚠️  AUR installation failed"
+                fi
+            else
+                echo "⚠️  No AUR helper found. Install manually from:"
+                echo "    https://github.com/extremeshok/clamav-unofficial-sigs"
+            fi
+            ;;
+        *debian* | *ubuntu*)
+            # Download and install the script
+            if [ ! -f /usr/local/bin/clamav-unofficial-sigs.sh ]; then
+                sudo curl -o /usr/local/bin/clamav-unofficial-sigs.sh https://raw.githubusercontent.com/extremeshok/clamav-unofficial-sigs/master/clamav-unofficial-sigs.sh
+                sudo chmod +x /usr/local/bin/clamav-unofficial-sigs.sh
+                echo "✅ Installed clamav-unofficial-sigs.sh"
+
+                # Run initial update
+                echo "Running initial signature update (this may take a while)..."
+                if sudo /usr/local/bin/clamav-unofficial-sigs.sh; then
+                    echo "✅ Third-party signatures updated"
+                else
+                    echo "⚠️  Initial update failed, continuing anyway..."
+                fi
+
+                # Add to cron for daily updates (6 AM)
+                THIRDPARTY_CRON="0 6 * * * /usr/local/bin/clamav-unofficial-sigs.sh > /dev/null 2>&1"
+                if ! sudo crontab -l 2>/dev/null | grep -q "clamav-unofficial-sigs"; then
+                    (sudo crontab -l 2>/dev/null; echo "$THIRDPARTY_CRON") | sudo crontab -
+                    echo "✅ Added daily update to root crontab (6 AM)"
+                fi
+            else
+                echo "✅ clamav-unofficial-sigs already installed"
+            fi
+            ;;
+        *fedora*)
+            # Download and install the script
+            if [ ! -f /usr/local/bin/clamav-unofficial-sigs.sh ]; then
+                sudo curl -o /usr/local/bin/clamav-unofficial-sigs.sh https://raw.githubusercontent.com/extremeshok/clamav-unofficial-sigs/master/clamav-unofficial-sigs.sh
+                sudo chmod +x /usr/local/bin/clamav-unofficial-sigs.sh
+                echo "✅ Installed clamav-unofficial-sigs.sh"
+
+                # Run initial update
+                echo "Running initial signature update (this may take a while)..."
+                if sudo /usr/local/bin/clamav-unofficial-sigs.sh; then
+                    echo "✅ Third-party signatures updated"
+                else
+                    echo "⚠️  Initial update failed, continuing anyway..."
+                fi
+
+                # Add to cron for daily updates (6 AM)
+                THIRDPARTY_CRON="0 6 * * * /usr/local/bin/clamav-unofficial-sigs.sh > /dev/null 2>&1"
+                if ! sudo crontab -l 2>/dev/null | grep -q "clamav-unofficial-sigs"; then
+                    (sudo crontab -l 2>/dev/null; echo "$THIRDPARTY_CRON") | sudo crontab -
+                    echo "✅ Added daily update to root crontab (6 AM)"
+                fi
+            else
+                echo "✅ clamav-unofficial-sigs already installed"
+            fi
+            ;;
+        *)
+            echo "⚠️  Unsupported distribution for automatic installation"
+            echo "    Manual installation: https://github.com/extremeshok/clamav-unofficial-sigs"
+            ;;
+    esac
+
+    echo ""
+    echo "ℹ️  Third-party databases include:"
+    echo "    - Sanesecurity (free, high quality)"
+    echo "    - MalwarePatrol (limited free)"
+    echo "    - SecuriteInfo (limited free)"
+    echo "    - Additional community signatures"
+else
+    echo "Skipping third-party signature installation"
+    echo "Note: Detection rates will be limited to official ClamAV databases only"
+fi
 
 # --- Cronjob Setup ---
 
