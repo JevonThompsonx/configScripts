@@ -17,7 +17,6 @@ echo "🚀 Starting UFW configuration for Tailscale and Docker..."
 echo "[1/5] Setting default policies (deny incoming, allow outgoing)..."
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo tailscale up --snat-subnet-routes=false
 # --- 2. Allow Essential & Tailscale Traffic ---
 echo "[2/5] Allowing SSH and Tailscale..."
 sudo ufw allow ssh comment 'Allow SSH connections'
