@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Server/Headless Setup Script for Arch, Debian, and Fedora-based Systems
+# Server/Headless Setup Script for Arch, Debian, Fedora, and Alpine-based Systems
 # This script auto-detects the distribution and installs a common
 # set of essential command-line development tools and server configurations.
 #
@@ -134,15 +134,43 @@ install_common_dev_tools() {
     echo "Installing Rust-based tools with Cargo..."
     if command -v cargo &> /dev/null; then
         # Install packages one by one to continue even if one fails
-        for crate in selene atuin; do
-            if cargo install "$crate"; then
-                echo "✅ Installed $crate"
+        # Add eza and lazygit for distributions that don't have them in repos
+        for crate in selene atuin eza; do
+            if ! command -v "$crate" &> /dev/null; then
+                echo "Installing $crate via cargo..."
+                if cargo install "$crate"; then
+                    echo "✅ Installed $crate"
+                else
+                    echo "⚠️  Failed to install $crate, continuing..."
+                fi
             else
-                echo "⚠️  Failed to install $crate, continuing..."
+                echo "✅ $crate already installed, skipping."
             fi
         done
     else
         echo "⚠️  Cargo not found in PATH. Skipping installation of Rust tools."
+    fi
+
+    echo "Installing Go-based tools..."
+    if command -v go &> /dev/null; then
+        # Install lazygit via go if not already available
+        if ! command -v lazygit &> /dev/null; then
+            echo "Installing lazygit via go..."
+            if go install github.com/jesseduffield/lazygit@latest; then
+                # Add go bin to PATH if not already there
+                if ! grep -q 'export PATH="$HOME/go/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
+                    echo 'export PATH="$HOME/go/bin:$PATH"' >> "$HOME/.profile"
+                fi
+                export PATH="$HOME/go/bin:$PATH"
+                echo "✅ Installed lazygit"
+            else
+                echo "⚠️  Failed to install lazygit, continuing..."
+            fi
+        else
+            echo "✅ lazygit already installed, skipping."
+        fi
+    else
+        echo "⚠️  Go not found in PATH. Skipping installation of Go tools."
     fi
 }
 
@@ -365,6 +393,72 @@ setup_fedora() {
     # --- REMOVED: Flatpak installation (GUI/Desktop apps) ---
 }
 
+setup_alpine() {
+    print_header "Running Alpine Linux Setup"
+    
+    echo "Updating package index..."
+    sudo apk update
+    sudo apk upgrade
+    
+    echo "Enabling community and testing repositories..."
+    # Enable community repository if not already enabled
+    if ! grep -q "^[^#]*community" /etc/apk/repositories; then
+        echo "Enabling community repository..."
+        sudo sed -i '/community/s/^#//g' /etc/apk/repositories 2>/dev/null || \
+        echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" | sudo tee -a /etc/apk/repositories
+    fi
+    
+    # Optionally enable testing repository for newer packages (fastfetch, etc.)
+    if ! grep -q "^[^#]*testing" /etc/apk/repositories; then
+        echo "Enabling testing repository for additional packages..."
+        echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" | sudo tee -a /etc/apk/repositories
+    fi
+    
+    sudo apk update
+    
+    echo "Installing packages with apk..."
+    local packages=(
+        tree git curl wget gnupg unzip ffmpeg neovim
+        nodejs npm zoxide fish tailscale
+        python3 py3-pip go ripgrep luarocks ruby php82 openjdk17
+        xsel xclip clamav clamav-daemon freshclam
+        github-cli # GitHub CLI
+        bash # Ensure bash is available for scripts
+        shadow # For chsh command
+    )
+    
+    # Try to install fastfetch from testing repo
+    packages+=(fastfetch)
+    
+    # Note: eza and lazygit might not be available in Alpine repos
+    # They can be installed via cargo/go later via install_common_dev_tools
+    
+    sudo apk add "${packages[@]}"
+    
+    echo "Installing additional tools that may not be in main repos..."
+    
+    # Install eza via cargo if not available
+    if ! command -v eza &> /dev/null; then
+        echo "eza not found in repos, will be installed via cargo later..."
+    fi
+    
+    # Install lazygit via go if not available
+    if ! command -v lazygit &> /dev/null; then
+        echo "lazygit not found in repos, will be installed via go later..."
+    fi
+    
+    echo "Setting up services (OpenRC)..."
+    # Alpine uses OpenRC instead of systemd
+    
+    # Enable and start ClamAV
+    if command -v freshclam &> /dev/null; then
+        echo "Configuring ClamAV..."
+        sudo freshclam 2>/dev/null || echo "⚠️  ClamAV database update failed, continuing..."
+        sudo rc-update add clamd default 2>/dev/null
+        sudo rc-service clamd start 2>/dev/null || echo "⚠️  ClamAV daemon start failed, continuing..."
+    fi
+}
+
 # --- Main Execution Logic ---
 
 main() {
@@ -391,6 +485,12 @@ main() {
         *fedora*)
             setup_fedora
             ;;
+        *alpine*)
+            setup_alpine
+            ;;
+        alpine)
+            setup_alpine
+            ;;
         *)
             echo "❌ Unsupported distribution: $ID"
             exit 1
@@ -408,17 +508,41 @@ main() {
 
     echo "Enabling and starting Tailscale..."
     if command -v tailscale &> /dev/null; then
-        if sudo systemctl enable --now tailscaled 2>/dev/null; then
-            echo "✅ Tailscaled service enabled and started"
-            # Note: `tailscale up` requires interaction and may disconnect SSH
-            echo "Starting Tailscale (this may require interaction)..."
-            if sudo tailscale up; then
-                echo "✅ Tailscale connected"
+        # Detect init system (systemd vs OpenRC)
+        if command -v systemctl &> /dev/null; then
+            # systemd-based system
+            if sudo systemctl enable --now tailscaled 2>/dev/null; then
+                echo "✅ Tailscaled service enabled and started"
+                # Note: `tailscale up` requires interaction and may disconnect SSH
+                echo "Starting Tailscale (this may require interaction)..."
+                if sudo tailscale up; then
+                    echo "✅ Tailscale connected"
+                else
+                    echo "⚠️  Tailscale up failed or was cancelled. You can run 'sudo tailscale up' manually later."
+                fi
             else
-                echo "⚠️  Tailscale up failed or was cancelled. You can run 'sudo tailscale up' manually later."
+                echo "⚠️  Failed to enable tailscaled service. You may need to do this manually."
+            fi
+        elif command -v rc-service &> /dev/null; then
+            # OpenRC-based system (Alpine)
+            if sudo rc-update add tailscale default 2>/dev/null; then
+                echo "✅ Tailscale service added to default runlevel"
+                if sudo rc-service tailscale start 2>/dev/null; then
+                    echo "✅ Tailscale service started"
+                    echo "Starting Tailscale (this may require interaction)..."
+                    if sudo tailscale up; then
+                        echo "✅ Tailscale connected"
+                    else
+                        echo "⚠️  Tailscale up failed or was cancelled. You can run 'sudo tailscale up' manually later."
+                    fi
+                else
+                    echo "⚠️  Failed to start tailscale service. You may need to do this manually."
+                fi
+            else
+                echo "⚠️  Failed to enable tailscale service. You may need to do this manually."
             fi
         else
-            echo "⚠️  Failed to enable tailscaled service. You may need to do this manually."
+            echo "⚠️  Unknown init system. Please manually configure Tailscale."
         fi
     else
         echo "⚠️  Tailscale not found. Skipping Tailscale setup."
