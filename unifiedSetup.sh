@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Unified Setup Script for Arch, Debian, and Fedora-based Systems
+# Unified Setup Script for Arch, Debian, Fedora, and Alpine Linux
 # This script auto-detects the distribution and installs a common
 # set of development tools, applications, and personal configurations.
 #
@@ -434,6 +434,80 @@ setup_fedora() {
       com.nextcloud.desktopclient # Note: This is a Flatpak version. The AppImage provides an alternative.
 }
 
+setup_alpine() {
+    print_header "Running Alpine Linux Setup"
+    
+    # Enable community repository if not already enabled
+    if ! grep -q "^[^#].*community" /etc/apk/repositories; then
+        echo "Enabling community repository..."
+        sudo sed -i '/community/s/^#//' /etc/apk/repositories
+    fi
+    
+    # Update package index
+    sudo apk update
+    sudo apk upgrade
+    
+    echo "Installing packages with apk..."
+    
+    # Alpine package names differ from other distros
+    local packages=(
+        git curl wget gnupg unzip ffmpeg calibre github-cli neovim
+        npm zoxide fastfetch foot fish eza ripgrep lazygit luarocks
+        ruby php82 openjdk17 xsel xclip fuse bash coreutils
+        python3 py3-pip go ttf-fira-code clamav freshclam
+        # Alpine-specific packages
+        shadow # For chsh command
+        libstdc++ # Runtime library often needed
+        gcompat # Compatibility layer for glibc apps
+        musl-dev gcc g++ make # Build tools for compiling
+        linux-headers # Headers needed for some builds
+    )
+    
+    # Note: Node.js check (similar to Arch setup)
+    if ! command -v node &> /dev/null; then
+        echo "Node.js not found. Adding 'nodejs' to the installation list."
+        packages+=("nodejs")
+    else
+        echo "✅ Node.js is already installed ($(node -v)). Skipping installation to avoid conflicts."
+    fi
+    
+    sudo apk add "${packages[@]}"
+    
+    # Install Tailscale (requires setup from their repo)
+    echo "Installing Tailscale..."
+    if ! command -v tailscale &> /dev/null; then
+        local arch
+        arch=$(uname -m)
+        echo "Downloading Tailscale for $arch..."
+        wget "https://pkgs.tailscale.com/stable/tailscale_latest_${arch}.apk"
+        sudo apk add --allow-untrusted "tailscale_latest_${arch}.apk"
+        rm "tailscale_latest_${arch}.apk"
+        
+        # Enable Tailscale service (OpenRC)
+        sudo rc-update add tailscale
+        echo "✅ Tailscale installed and service enabled"
+    else
+        echo "✅ Tailscale already installed."
+    fi
+    
+    # Note: AppImageLauncher is not available in Alpine's repos
+    # FUSE is installed which is needed to run AppImages manually
+    echo ""
+    echo "⚠️  Note: AppImageLauncher is not available for Alpine Linux."
+    echo "    AppImages can still be run manually with FUSE support (now installed)."
+    echo "    To run an AppImage: chmod +x app.AppImage && ./app.AppImage"
+    echo ""
+    
+    # Setup OpenRC services (Alpine uses OpenRC instead of systemd)
+    echo "Configuring OpenRC services..."
+    
+    # ClamAV freshclam service
+    if command -v freshclam &> /dev/null; then
+        sudo rc-update add freshclam default
+        echo "✅ ClamAV freshclam service added to default runlevel"
+    fi
+}
+
 # --- Main Execution Logic ---
 
 main() {
@@ -461,6 +535,9 @@ main() {
         *fedora*)
             setup_fedora
             ;;
+        *alpine*)
+            setup_alpine
+            ;;
         *)
             echo "❌ Unsupported distribution: $ID"
             exit 1
@@ -478,17 +555,29 @@ main() {
 
     echo "Enabling and starting Tailscale..."
     if command -v tailscale &> /dev/null; then
-        if sudo systemctl enable --now tailscaled 2>/dev/null; then
-            echo "✅ Tailscaled service enabled and started"
-            # Note: `tailscale up` requires interaction and may disconnect SSH
-            echo "Starting Tailscale (this may require interaction)..."
-            if sudo tailscale up; then
-                echo "✅ Tailscale connected"
+        # Detect init system (systemd vs OpenRC)
+        if command -v systemctl &> /dev/null; then
+            # systemd
+            if sudo systemctl enable --now tailscaled 2>/dev/null; then
+                echo "✅ Tailscaled service enabled and started (systemd)"
             else
-                echo "⚠️  Tailscale up failed or was cancelled. You can run 'sudo tailscale up' manually later."
+                echo "⚠️  Failed to enable tailscaled service. You may need to do this manually."
             fi
+        elif command -v rc-service &> /dev/null; then
+            # OpenRC (Alpine)
+            if sudo rc-service tailscale start 2>/dev/null; then
+                echo "✅ Tailscale service started (OpenRC)"
+            else
+                echo "⚠️  Failed to start Tailscale service. You may need to do this manually."
+            fi
+        fi
+        
+        # Note: `tailscale up` requires interaction and may disconnect SSH
+        echo "Starting Tailscale (this may require interaction)..."
+        if sudo tailscale up; then
+            echo "✅ Tailscale connected"
         else
-            echo "⚠️  Failed to enable tailscaled service. You may need to do this manually."
+            echo "⚠️  Tailscale up failed or was cancelled. You can run 'sudo tailscale up' manually later."
         fi
     else
         echo "⚠️  Tailscale not found. Skipping Tailscale setup."
@@ -591,6 +680,16 @@ main() {
     echo "5. Launch Neovim - LazyVim will auto-install plugins on first run"
     echo "6. Run ':LazyHealth' in Neovim to verify everything is working"
     echo ""
+    
+    # Alpine-specific notes
+    if [[ "$DISTRO_ID" == *alpine* ]]; then
+        echo "ALPINE LINUX SPECIFIC NOTES:"
+        echo "- This system uses OpenRC instead of systemd"
+        echo "- Services: sudo rc-service <service> {start|stop|restart|status}"
+        echo "- AppImageLauncher is not available - run AppImages manually"
+        echo "- Some packages may need compilation from source"
+        echo ""
+    fi
 }
 
 # Run the main function
