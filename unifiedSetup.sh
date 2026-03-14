@@ -308,6 +308,24 @@ clone_user_configs() {
   echo "✅ Config cloning complete!"
 }
 
+# Function to run the uninstall script
+run_uninstall_apps() {
+  print_header "Removing unwanted applications"
+  local SCRIPT_DIR
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local uninstall_script="$SCRIPT_DIR/uninstall-apps.sh"
+
+  if [ -f "$uninstall_script" ]; then
+    if bash "$uninstall_script"; then
+      echo "✅ Unwanted apps removed."
+    else
+      echo "⚠️  Uninstall script encountered errors. Continuing anyway..."
+    fi
+  else
+    echo "⚠️  uninstall-apps.sh not found at $uninstall_script. Skipping."
+  fi
+}
+
 # --- Distribution-Specific Setup Functions ---
 
 setup_arch() {
@@ -548,6 +566,7 @@ main() {
 
   # --- Common Setup Steps for All Distributions ---
 
+  run_uninstall_apps
   install_appimages # <-- ADDED: Run the new AppImage function
   install_rust
   install_bun
