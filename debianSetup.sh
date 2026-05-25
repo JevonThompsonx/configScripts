@@ -22,15 +22,18 @@ sudo -v  # Cache sudo credentials, prompt once
 
 # ── 1. Enable contrib, non-free, non-free-firmware repos ──────────────────────
 header "Enabling contrib/non-free repos"
-# Handle both formats: "main non-free-firmware" or just "main"
-sudo sed -i 's/ main$/ main contrib non-free non-free-firmware/' /etc/apt/sources.list
-sudo sed -i 's/ main non-free-firmware$/ main contrib non-free non-free-firmware/' /etc/apt/sources.list
+if [ -f /etc/apt/sources.list ]; then
+    # Only add if contrib missing (idempotent)
+    if ! grep -q contrib /etc/apt/sources.list 2>/dev/null; then
+        sudo sed -i '/^deb.* main/s/ main/ main contrib non-free non-free-firmware/' /etc/apt/sources.list
+    fi
+fi
 sudo apt update
 
 # ── 2. Install basic tools ────────────────────────────────────────────────────
 header "Installing base CLI tools"
 FOUNDATION=(
-    curl wget git ca-certificates gnupg lsb-release
+    curl wget git ca-certificates gnupg
     build-essential pkg-config libssl-dev unzip
     python3 python3-pip python3-venv pipx
     eza ripgrep jq
@@ -44,7 +47,7 @@ sudo apt install -y fish
 # Set fish as default shell for user (effective after next login)
 if [ "$SHELL" != "/usr/bin/fish" ]; then
     warn "Changing default shell to fish. Log out/in for it to take effect."
-    chsh -s /usr/bin/fish
+    sudo chsh -s /usr/bin/fish "$(whoami)"
 fi
 
 # Create fish config directory
@@ -78,16 +81,16 @@ sudo apt install -y gh
 
 log "After script completes, run: gh auth login"
 
-# ── 8. Install Neovim ─────────────────────────────────────────────────────────
-header "Installing Neovim"
-sudo apt install -y neovim python3-pynvim
-sudo npm install -g neovim tree-sitter-cli 2>/dev/null || warn "npm neovim/tree-sitter install skipped (npm may not be installed yet)"
-
-# ── 9. Install Node.js (latest LTS via NodeSource) ────────────────────────────
+# ── 8. Install Node.js (latest LTS via NodeSource) ────────────────────────────
 header "Installing Node.js"
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 sudo apt install -y nodejs
 sudo npm install -g npm@latest
+
+# ── 9. Install Neovim ─────────────────────────────────────────────────────────
+header "Installing Neovim"
+sudo apt install -y neovim python3-pynvim
+sudo npm install -g neovim tree-sitter-cli 2>/dev/null || warn "npm neovim/tree-sitter install skipped"
 
 # ── 10. Install Bun ───────────────────────────────────────────────────────────
 header "Installing Bun"
@@ -100,8 +103,8 @@ sudo apt install -y golang-go
 # ── 12. Install Flatpak + Flathub ─────────────────────────────────────────────
 header "Installing Flatpak"
 sudo apt install -y flatpak
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-sudo apt install -1 gnome-software-plugin-flatpak 2>/dev/null || warn "gnome-software-plugin-flatpak not available"
+sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+sudo apt install -y gnome-software-plugin-flatpak 2>/dev/null || warn "gnome-software-plugin-flatpak not available"
 
 # ── 13. Install Flatpak apps (compatible subset from Bazzite) ─────────────────
 header "Installing Flatpak applications"
@@ -147,7 +150,7 @@ GAMING=(
 FLATPAKS=("${BROWSERS[@]}" "${MEDIA[@]}" "${DEV[@]}" "${UTILITY[@]}" "${GAMING[@]}")
 for app in "${FLATPAKS[@]}"; do
     log "Installing $app..."
-    flatpak install -y flathub "$app" || warn "Failed to install $app"
+    sudo flatpak install -y flathub "$app" || warn "Failed to install $app"
 done
 
 # ── 14. Install Tailscale ─────────────────────────────────────────────────────
@@ -192,28 +195,35 @@ sudo apt install -y fonts-firacode fonts-noto-color-emoji
 # ── 19. AppImageLauncher ──────────────────────────────────────────────────────
 header "Installing AppImageLauncher"
 wget -q "https://github.com/TheAssassin/AppImageLauncher/releases/download/v2.2.0/appimagelauncher_2.2.0-travis995.0f91801.bionic_amd64.deb" -O /tmp/appimagelauncher.deb
-sudo apt install -y /tmp/appimagelauncher.deb
+sudo apt install -y /tmp/appimagelauncher.deb && rm -f /tmp/appimagelauncher.deb
 mkdir -p ~/Applications
 
 # ── 20. Set up fish config (clone latest from GitHub) ─────────────────────────
 header "Cloning fish configuration"
 if [ ! -d ~/.config/fish/.git ]; then
-    rmdir ~/.config/fish/functions ~/.config/fish/conf.d ~/.config/fish/completions ~/.config/fish/themes 2>/dev/null || true
-    git clone https://github.com/JevonThompsonx/fish.git ~/.config/fish
+    git clone https://github.com/JevonThompsonx/fish.git /tmp/fish-config
+    mkdir -p ~/.config/fish
+    cp -R /tmp/fish-config/* ~/.config/fish/
+    rm -rf /tmp/fish-config
     log "Fish config cloned"
 else
     log "Fish config already cloned, updating..."
-    git -C ~/.config/fish pull
+    git -C ~/.config/fish pull --ff-only || warn "Fish config pull failed — check manually"
 fi
 
 # ── 21. Install Fisher plugins ────────────────────────────────────────────────
 header "Installing Fisher plugins"
-fish -c "fisher update" 2>/dev/null || warn "Fisher update skipped — run 'fisher update' in fish shell"
+fish -c "curl -sL https://git.io/fisher | source && fisher update" || warn "Fisher install/update skipped — run 'fisher update' in fish shell"
 
 # ── 22. Nextcloud AppImage ────────────────────────────────────────────────────
 header "Installing Nextcloud"
-wget -q "https://github.com/nextcloud-releases/desktop/releases/latest/download/Nextcloud-latest-x86_64.AppImage" -O ~/Applications/Nextcloud-latest-x86_64.AppImage
-chmod +x ~/Applications/Nextcloud-latest-x86_64.AppImage
+if [ ! -f ~/Applications/Nextcloud-latest-x86_64.AppImage ]; then
+    wget -q "https://github.com/nextcloud-releases/desktop/releases/latest/download/Nextcloud-latest-x86_64.AppImage" -O /tmp/nextcloud.AppImage
+    mv /tmp/nextcloud.AppImage ~/Applications/Nextcloud-latest-x86_64.AppImage
+    chmod +x ~/Applications/Nextcloud-latest-x86_64.AppImage
+else
+    log "Nextcloud AppImage already exists"
+fi
 
 # ── 23. Git configuration ────────────────────────────────────────────────────
 header "Setting up Git"
