@@ -24,7 +24,7 @@ sudo -v  # Cache sudo credentials, prompt once
 header "Enabling contrib/non-free repos"
 if [ -f /etc/apt/sources.list ]; then
     # Only add if contrib missing (idempotent)
-    if ! grep -q contrib /etc/apt/sources.list 2>/dev/null; then
+    if [ -f /etc/apt/sources.list ] && ! grep -q contrib /etc/apt/sources.list 2>/dev/null; then
         sudo sed -i '/^deb.* main/s/ main/ main contrib non-free non-free-firmware/' /etc/apt/sources.list
     fi
 fi
@@ -85,7 +85,7 @@ log "After script completes, run: gh auth login"
 header "Installing Node.js"
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 sudo apt install -y nodejs
-sudo npm install -g npm@latest
+sudo npm install -g npm@latest 2>/dev/null || warn "npm upgrade skipped (broken npm from NodeSource)"
 
 # ── 9. Install Neovim ─────────────────────────────────────────────────────────
 header "Installing Neovim"
