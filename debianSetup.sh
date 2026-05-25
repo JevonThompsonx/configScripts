@@ -150,14 +150,16 @@ GAMING=(
 FLATPAKS=("${BROWSERS[@]}" "${MEDIA[@]}" "${DEV[@]}" "${UTILITY[@]}" "${GAMING[@]}")
 for app in "${FLATPAKS[@]}"; do
     log "Installing $app..."
-    sudo flatpak install -y flathub "$app" || warn "Failed to install $app"
+    sudo flatpak install --system -y flathub "$app" || warn "Failed to install $app"
 done
 
 # ── 14. Install Tailscale ─────────────────────────────────────────────────────
 header "Installing Tailscale"
-curl -fsSL "https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg" \
+DEBIAN_CODENAME="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+[ -z "$DEBIAN_CODENAME" ] && DEBIAN_CODENAME="$(lsb_release -cs 2>/dev/null || echo "trixie")"
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${DEBIAN_CODENAME}.noarmor.gpg" \
     | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-curl -fsSL "https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list" \
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${DEBIAN_CODENAME}.tailscale-keyring.list" \
     | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
 sudo apt update
 sudo apt install -y tailscale
@@ -200,15 +202,29 @@ mkdir -p ~/Applications
 
 # ── 20. Set up fish config (clone latest from GitHub) ─────────────────────────
 header "Cloning fish configuration"
-if [ ! -d ~/.config/fish/.git ]; then
-    git clone https://github.com/JevonThompsonx/fish.git /tmp/fish-config
-    mkdir -p ~/.config/fish
-    cp -R /tmp/fish-config/* ~/.config/fish/
-    rm -rf /tmp/fish-config
-    log "Fish config cloned"
-else
+if [ -d ~/.config/fish/.git ]; then
     log "Fish config already cloned, updating..."
     git -C ~/.config/fish pull --ff-only || warn "Fish config pull failed — check manually"
+elif command -v gh &>/dev/null && gh auth status &>/dev/null; then
+    mkdir -p ~/.config/fish
+    gh repo clone JevonThompsonx/fish ~/.config/fish || warn "Fish config clone failed"
+    log "Fish config cloned via gh"
+else
+    warn "GitHub CLI not authenticated — skip fish config clone"
+    warn "Run: gh auth login, then: gh repo clone JevonThompsonx/fish ~/.config/fish"
+fi
+
+# ── 20b. Add cargo/bin + bun/bin to fish PATH (AFTER clone — avoid overwrite) ──
+header "Adding Rust/Bun to fish PATH"
+FISH_CONFIG_DIR=~/.config/fish
+mkdir -p "$FISH_CONFIG_DIR"
+if [ -f "$FISH_CONFIG_DIR/config.fish" ] && grep -qF 'cargo/bin' "$FISH_CONFIG_DIR/config.fish" 2>/dev/null; then
+    log "Fish PATH already configured for cargo/bin"
+else
+    echo "" >> "$FISH_CONFIG_DIR/config.fish"
+    echo '# Added by configScripts (cargo/bin + bun/bin)' >> "$FISH_CONFIG_DIR/config.fish"
+    echo 'set -gx PATH $HOME/.cargo/bin $HOME/.bun/bin $HOME/.local/bin $PATH' >> "$FISH_CONFIG_DIR/config.fish"
+    log "Added cargo/bin, bun/bin to fish config.fish"
 fi
 
 # ── 21. Install Fisher plugins ────────────────────────────────────────────────

@@ -12,14 +12,17 @@ sudo apt install -y extrepo ffmpeg git curl calibre wget gpg software-properties
 
 # Clone config scripts
 echo "Ensuring clean configScripts directory and cloning..."
-# Check if configScripts directory exists and remove it to avoid "fatal: destination path 'configScripts' already exists"
 if [ -d "$HOME/configScripts" ]; then
     echo "Existing configScripts directory found. Removing it..."
     rm -rf "$HOME/configScripts"
 fi
-cd ~
-git clone https://github.com/JevonThompsonx/configScripts.git
-chmod +x ~/configScripts/*.sh
+cd ~ || exit 1
+if command -v gh &>/dev/null && gh auth status &>/dev/null; then
+    gh repo clone JevonThompsonx/configScripts
+else
+    echo "⚠️  gh CLI not authenticated. Clone manually: gh repo clone JevonThompsonx/configScripts"
+fi
+chmod +x ~/configScripts/*.sh 2>/dev/null || true
 
 # IMPORTANT: Ensure these scripts (ubuntuSetup.sh, zigGhosttyInstall.sh)
 # DO NOT call this main setup script again, or any part of it that

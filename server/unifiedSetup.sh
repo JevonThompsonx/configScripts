@@ -57,6 +57,41 @@ setup_fedora() {
     sudo dnf install -y git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit neovim nodejs npm golang go gh tailscale ffmpeg python3-pip luarocks ruby php java-17-openjdk-devel xsel xclip clamav
 }
 
+setup_rocky() {
+    print_header "Running Rocky Linux Setup (Server)"
+    sudo dnf upgrade --refresh -y
+
+    if ! rpm -q epel-release &>/dev/null; then
+        sudo dnf install -y epel-release epel-next-release
+    fi
+    if ! dnf repolist 2>/dev/null | grep -q rpmfusion; then
+        sudo dnf install -y \
+            "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm" \
+            "https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm"
+    fi
+
+    local packages=(git curl wget unzip fish fzf ripgrep fastfetch lazygit neovim nodejs npm golang gh python3-pip luarocks ruby php java-17-openjdk-devel xsel xclip clamav clamav-update)
+    for pkg in "${packages[@]}"; do
+        if ! rpm -q "$pkg" &>/dev/null; then
+            sudo dnf install -y "$pkg" 2>/dev/null || echo "⚠️  $pkg not available"
+        fi
+    done
+
+    if ! command -v tailscale &>/dev/null; then
+        curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null || echo "⚠️  Tailscale install failed"
+        sudo systemctl enable --now tailscaled 2>/dev/null || true
+    fi
+
+    if ! command -v cargo &>/dev/null; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+    fi
+    if ! command -v zoxide &>/dev/null; then
+        source "$HOME/.cargo/env" 2>/dev/null || true
+        cargo install zoxide 2>/dev/null || echo "⚠️  zoxide not available"
+    fi
+}
+
 setup_alpine() {
     print_header "Running Alpine Linux Setup (v3.21+ Migration)"
     
@@ -133,14 +168,18 @@ fix_fish_cargo() {
 main() {
     check_dependencies
     if [ -f /etc/os-release ]; then . /etc/os-release; else exit 1; fi
-    DISTRO_ID="${ID_LIKE:-$ID}"
 
-    case "$DISTRO_ID" in
-        *arch*) setup_arch ;;
-        *debian*|*ubuntu*) setup_debian ;;
-        *fedora*) setup_fedora ;;
-        *alpine*) setup_alpine ;;
-        *) echo "❌ Unsupported distro"; exit 1 ;;
+    case "$ID" in
+        rocky) setup_rocky ;;
+        *)
+            case "${ID_LIKE:-$ID}" in
+                *arch*)     setup_arch ;;
+                *debian*|*ubuntu*) setup_debian ;;
+                *fedora*)   setup_fedora ;;
+                *alpine*)   setup_alpine ;;
+                *) echo "❌ Unsupported distro: $ID"; exit 1 ;;
+            esac
+            ;;
     esac
 
     # Generic installs
@@ -149,6 +188,14 @@ main() {
     
     fix_fish_cargo
     setup_lazyvim
+
+    # SELinux fish context (Fedora/RHEL/Rocky)
+    if command -v getenforce &>/dev/null && [ "$(getenforce 2>/dev/null)" = "Enforcing" ] && command -v semanage &>/dev/null; then
+        echo "Configuring SELinux for fish shell..."
+        sudo semanage login -a -s unconfined_u -r "s0-s0:c0.c1023" "$(whoami)" 2>/dev/null || \
+            sudo semanage login -m -s unconfined_u -r "s0-s0:c0.c1023" "$(whoami)" 2>/dev/null || \
+            echo "⚠️  Could not set SELinux user (harmless if context already correct)"
+    fi
 
     # Finalize Shell
     sudo chsh -s "$(which fish)" "$USER"

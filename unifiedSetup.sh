@@ -248,7 +248,7 @@ clone_user_configs() {
     if ! gh auth login; then
       echo "⚠️  GitHub authentication failed. Skipping dotfile cloning."
       echo "    You can run 'gh auth login' manually later and clone configs."
-      cd "$ORIGINAL_DIR"
+      cd "$ORIGINAL_DIR" || return 1
       return 1
     fi
   else
@@ -302,8 +302,8 @@ clone_user_configs() {
   clone_repo JevonThompsonx/fish "$HOME/.config/fish"
   clone_repo JevonThompsonx/WPs "$HOME/Pictures/WPs"
 
-  # Return to original directory
-  cd "$ORIGINAL_DIR"
+      # Return to original directory
+      cd "$ORIGINAL_DIR" || return 1
 
   echo "✅ Config cloning complete!"
 }
@@ -445,13 +445,117 @@ setup_fedora() {
     appimagelauncher clamav clamav-update clamd # <-- ClamAV with daemon for malware scanning
 
   echo "Installing desktop applications via Flatpak..."
-  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-  flatpak install flathub -y \
+  sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+  sudo flatpak install --system flathub -y \
     md.obsidian.Obsidian \
     net.localsend.localsend \
     io.freetubeapp.FreeTube \
     com.librewolf.Librewolf \
-    com.nextcloud.desktopclient # Note: This is a Flatpak version. The AppImage provides an alternative.
+    com.nextcloud.desktopclient 2>/dev/null || echo "⚠️  Some flatpaks failed"
+}
+
+setup_rocky() {
+  print_header "Running Rocky Linux Setup"
+  sudo dnf upgrade --refresh -y
+
+  echo "Enabling EPEL and RPM Fusion..."
+  if ! rpm -q epel-release &>/dev/null; then
+    sudo dnf install -y epel-release epel-next-release
+  fi
+  if ! dnf repolist 2>/dev/null | grep -q rpmfusion; then
+    sudo dnf install -y \
+      "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm" \
+      "https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm"
+  fi
+
+  echo "Installing packages with dnf (soft-fail for sparse EPEL 10)..."
+  local packages=(
+    git curl wget unzip tar jq podman
+    fish fzf ripgrep fastfetch distrobox
+    gh neovim golang nodejs npm
+    python3-pip python3-virtualenv
+  )
+  for pkg in "${packages[@]}"; do
+    if ! rpm -q "$pkg" &>/dev/null; then
+      sudo dnf install -y "$pkg" 2>/dev/null && echo "✅ $pkg installed" || echo "⚠️  $pkg not available"
+    fi
+  done
+
+  # Rust via rustup
+  if ! command -v cargo &>/dev/null; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+  fi
+
+  # Zoxide (not in EPEL 10 — cargo fallback)
+  if ! command -v zoxide &>/dev/null; then
+    source "$HOME/.cargo/env" 2>/dev/null || true
+    cargo install zoxide 2>/dev/null && echo "✅ zoxide installed" || echo "⚠️  zoxide not available"
+  fi
+
+  # Atuin (via cargo, not in EPEL 10)
+  if ! command -v atuin &>/dev/null; then
+    cargo install atuin 2>/dev/null && echo "✅ atuin installed" || echo "⚠️  atuin not available"
+  fi
+
+  # Eza (via cargo — not in EPEL 10)
+  if ! command -v eza &>/dev/null; then
+    cargo install eza 2>/dev/null && echo "✅ eza installed" || echo "⚠️  eza not available"
+  fi
+
+  # Starship (via cargo — not in EPEL 10)
+  if ! command -v starship &>/dev/null; then
+    cargo install starship --locked 2>/dev/null && echo "✅ starship installed" || echo "⚠️  starship not available"
+  fi
+
+  # Tailscale (generic install, no official Rocky repo)
+  if ! command -v tailscale &>/dev/null; then
+    echo "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null && echo "✅ Tailscale installed" || echo "⚠️  Tailscale install failed"
+    sudo systemctl enable --now tailscaled 2>/dev/null || true
+  fi
+
+  # Flatpak + Flathub (system level)
+  if ! rpm -q flatpak &>/dev/null; then
+    sudo dnf install -y flatpak
+  fi
+  sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+  echo "Installing Flatpak utilities..."
+  local flatpak_utils=(
+    io.github.kolunmi.Bazaar
+    io.github.flattool.Warehouse
+    com.github.tchx84.Flatseal
+    com.ranfdev.DistroShelf
+  )
+  for app in "${flatpak_utils[@]}"; do
+    sudo flatpak install --system -y flathub "$app" 2>/dev/null && echo "✅ $app" || echo "⚠️  $app failed"
+  done
+
+  echo "Installing desktop applications via Flatpak..."
+  local flatpak_desktop=(
+    io.gitlab.librewolf-community
+    md.obsidian.Obsidian
+    org.videolan.VLC
+    org.gimp.GIMP
+    org.telegram.desktop
+    org.libreoffice.LibreOffice
+    org.qbittorrent.qBittorrent
+    io.missioncenter.MissionCenter
+  )
+  for app in "${flatpak_desktop[@]}"; do
+    sudo flatpak install --system -y flathub "$app" 2>/dev/null && echo "✅ $app" || echo "⚠️  $app failed"
+  done
+
+  # FiraCode Nerd Fonts
+  if [ ! -f "$HOME/.fonts/FiraCode-Regular.ttf" ]; then
+    mkdir -p "$HOME/.fonts"
+    curl -L -o /tmp/FiraCode.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip
+    unzip -q -o /tmp/FiraCode.zip -d /tmp/FiraCode/
+    cp /tmp/FiraCode/*.ttf "$HOME/.fonts/" 2>/dev/null || true
+    fc-cache -fv "$HOME/.fonts" 2>/dev/null || true
+    rm -rf /tmp/FiraCode.zip /tmp/FiraCode/
+  fi
 }
 
 setup_alpine() {
@@ -533,41 +637,39 @@ setup_alpine() {
 main() {
   check_dependencies
 
-  # Check for /etc/os-release and source it
-  if [ -f /etc/os-release ]; then
-    . /etc/os-release
-  else
-    echo "❌ Cannot detect distribution: /etc/os-release not found."
-    exit 1
-  fi
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+    else
+        echo "❌ Cannot detect distribution: /etc/os-release not found."
+        exit 1
+    fi
 
-  # Determine the distribution and run the appropriate setup function
-  # ID_LIKE is used to catch derivatives (e.g., Ubuntu for Debian, Garuda for Arch)
-  DISTRO_ID="${ID_LIKE:-$ID}"
-
-  case "$DISTRO_ID" in
-  *arch*)
-    setup_arch
-    ;;
-  *debian* | *ubuntu*)
-    setup_debian
-    ;;
-  *fedora*)
-    setup_fedora
-    ;;
-  *alpine*)
-    setup_alpine
-    ;;
-  *)
-    echo "❌ Unsupported distribution: $ID"
-    exit 1
-    ;;
-  esac
+    # Set DISTRO_ID for downstream reference (Alpine notes, etc.)
+    DISTRO_ID="${ID_LIKE:-$ID}"
+    case "$ID" in
+        rocky)
+            setup_rocky
+            DISTRO_ID="rocky"
+            ;;
+        *)
+            # ID_LIKE catches derivatives (Ubuntu→debian, Garuda→arch, etc.)
+            case "${ID_LIKE:-$ID}" in
+                *arch*)     setup_arch ;;
+                *debian*|*ubuntu*) setup_debian ;;
+                *fedora*)   setup_fedora ;;
+                *alpine*)   setup_alpine ;;
+                *)
+                    echo "❌ Unsupported distribution: $ID (ID_LIKE: ${ID_LIKE:-unset})"
+                    exit 1
+                    ;;
+            esac
+            ;;
+    esac
 
   # --- Common Setup Steps for All Distributions ---
 
   run_uninstall_apps
-  install_appimages # <-- ADDED: Run the new AppImage function
+  install_appimages
   install_rust
   install_bun
   install_common_dev_tools
@@ -618,6 +720,20 @@ main() {
   # Clone personal dotfiles
   clone_user_configs
 
+  # Add cargo/bin + bun/bin to fish PATH (AFTER clone — avoid overwrite)
+  local FISH_CONFIG_DIR="$HOME/.config/fish"
+  mkdir -p "$FISH_CONFIG_DIR"
+  if [ -f "$FISH_CONFIG_DIR/config.fish" ] && grep -qF 'cargo/bin' "$FISH_CONFIG_DIR/config.fish" 2>/dev/null; then
+    echo "✅ Fish PATH already configured for cargo/bin"
+  else
+    {
+      echo ""
+      echo "# Added by configScripts (cargo/bin + bun/bin)"
+      echo 'set -gx PATH $HOME/.cargo/bin $HOME/.bun/bin $HOME/.local/bin $PATH'
+    } >> "$FISH_CONFIG_DIR/config.fish"
+    echo "✅ Added cargo/bin, bun/bin to fish config.fish"
+  fi
+
   # Setup LazyVim
   setup_lazyvim
 
@@ -637,6 +753,14 @@ main() {
     fi
   else
     echo "⚠️  Fish shell not found. Skipping shell change."
+  fi
+
+  # SELinux fish context (Fedora/RHEL only)
+  if command -v getenforce &>/dev/null && [ "$(getenforce 2>/dev/null)" = "Enforcing" ] && command -v semanage &>/dev/null; then
+    echo "Configuring SELinux for fish shell..."
+    sudo semanage login -a -s unconfined_u -r "s0-s0:c0.c1023" "$(whoami)" 2>/dev/null || \
+      sudo semanage login -m -s unconfined_u -r "s0-s0:c0.c1023" "$(whoami)" 2>/dev/null || \
+      echo "⚠️  Could not set SELinux user (harmless if context already correct)"
   fi
 
   print_header "Finalizing Neovim Setup"

@@ -8,7 +8,6 @@ set -e
 
 echo "=== Disabling all power saving features for server operation ==="
 
-# Detect distribution
 if [ -f /etc/os-release ]; then
     . /etc/os-release
 else
@@ -16,7 +15,11 @@ else
     exit 1
 fi
 
+# Distro detection: check exact ID for Rocky, then ID_LIKE for derivatives
 DISTRO_ID="${ID_LIKE:-$ID}"
+case "$ID" in
+    rocky) DISTRO_ID="rocky" ;;
+esac
 
 # 1. Mask all sleep/suspend/hibernate targets
 echo "➡️  Masking sleep/suspend/hibernate targets..."
@@ -34,7 +37,7 @@ case "$DISTRO_ID" in
         sudo apt update
         sudo apt install -y wireless-tools iw lm-sensors
         ;;
-    *fedora*)
+    *fedora*|*rocky*)
         sudo dnf install -y iw lm_sensors
         ;;
     *)
@@ -51,7 +54,7 @@ if [ -n "$WIFI_INTERFACE" ]; then
 
     # Force network adapter to stay on (the "on" value means always powered)
     if [ -e "/sys/class/net/$WIFI_INTERFACE/device/power/control" ]; then
-        echo 'on' | sudo tee /sys/class/net/$WIFI_INTERFACE/device/power/control > /dev/null
+        echo 'on' | sudo tee "/sys/class/net/$WIFI_INTERFACE/device/power/control" > /dev/null
         echo "✅ Network adapter set to always on"
     fi
 else
@@ -69,7 +72,7 @@ if [ -n "$ETH_INTERFACE" ]; then
 
     # Disable power management for Ethernet
     if [ -e "/sys/class/net/$ETH_INTERFACE/device/power/control" ]; then
-        echo 'on' | sudo tee /sys/class/net/$ETH_INTERFACE/device/power/control > /dev/null
+        echo 'on' | sudo tee "/sys/class/net/$ETH_INTERFACE/device/power/control" > /dev/null
         echo "✅ Ethernet adapter set to always on"
     fi
 else

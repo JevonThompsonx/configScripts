@@ -1,4 +1,4 @@
-a#!/bin/bash
+#!/bin/bash
 
 # A script to set up a Fedora development and desktop environment.
 
@@ -12,9 +12,10 @@ echo "Updating system and enabling third-party repositories..."
 sudo dnf upgrade --refresh -y
 
 # Enable RPM Fusion for free and non-free packages (for codecs like ffmpeg, etc.)
+FEDORA_VER="$(rpm -E %fedora)"
 sudo dnf install \
-  https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-  https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+  "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VER}.noarch.rpm" \
+  "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VER}.noarch.rpm" -y
 
 
 
@@ -47,16 +48,16 @@ fc-cache -fv
 # ---
 echo "📦 Installing desktop applications via Flatpak..."
 
-# Add the Flathub repository if it's not already configured
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+# Add the Flathub repository (system-level) if not already configured
+sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-# Install applications from Flathub
-flatpak install flathub -y \
+# Install applications from Flathub (system-level)
+sudo flatpak install --system flathub -y \
   md.obsidian.Obsidian \
   net.localsend.localsend \
   io.freetubeapp.FreeTube \
   com.librewolf.Librewolf \
-  com.nextcloud.desktopclient
+  com.nextcloud.desktopclient 2>/dev/null || echo "⚠️  Some flatpaks failed (install manually: sudo flatpak install --system ...)"
 
 # Note: AppImageLauncher and Webapp Manager are not available in standard Fedora repos.
 # Consider managing AppImages manually in a folder like ~/Applications.
@@ -97,6 +98,20 @@ else
     echo "Bun is already installed."
 fi
 
+# Add cargo/bin + bun/bin to fish PATH
+echo "Adding Rust/Bun to fish PATH..."
+FISH_CONFIG_DIR="$HOME/.config/fish"
+mkdir -p "$FISH_CONFIG_DIR"
+if [ -f "$FISH_CONFIG_DIR/config.fish" ] && grep -qF 'cargo/bin' "$FISH_CONFIG_DIR/config.fish" 2>/dev/null; then
+    echo "Fish PATH already configured for cargo/bin"
+else
+    {
+        echo ""
+        echo "# Added by configScripts (cargo/bin + bun/bin)"
+        echo 'set -gx PATH $HOME/.cargo/bin $HOME/.bun/bin $HOME/.local/bin $PATH'
+    } >> "$FISH_CONFIG_DIR/config.fish"
+    echo "Added cargo/bin, bun/bin to fish config.fish"
+fi
 
 # ---
 # SECTION 5: CONFIGURATION & SETUP
@@ -107,8 +122,14 @@ echo "🎨 Applying configurations and setting up services..."
 mkdir -p ~/Documents/Projects
 
 
+# Install Tailscale if not present (generic install, no official repo)
+if ! command -v tailscale &>/dev/null; then
+    echo "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null || echo "⚠️  Tailscale install failed"
+fi
+
 # Enable and start system services
-sudo systemctl enable --now tailscaled
+sudo systemctl enable --now tailscaled 2>/dev/null || echo "⚠️  tailscaled service not available"
 
 
 # Update font cache
@@ -135,6 +156,14 @@ if [ "$SHELL" != "/usr/bin/fish" ]; then
     chsh -s /usr/bin/fish
 else
     echo "Fish is already the default shell."
+fi
+
+# SELinux fish context (Fedora/RHEL only)
+if command -v getenforce &>/dev/null && [ "$(getenforce 2>/dev/null)" = "Enforcing" ] && command -v semanage &>/dev/null; then
+    echo "Configuring SELinux for fish shell..."
+    sudo semanage login -a -s unconfined_u -r "s0-s0:c0.c1023" "$(whoami)" 2>/dev/null || \
+        sudo semanage login -m -s unconfined_u -r "s0-s0:c0.c1023" "$(whoami)" 2>/dev/null || \
+        echo "⚠️  Could not set SELinux user (harmless if context already correct)"
 fi
 
 echo "✅ Fedora setup complete! Please log out and log back in for all changes to take effect, especially the new shell."

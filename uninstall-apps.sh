@@ -3,10 +3,12 @@
 # Uninstall unwanted apps across Arch, Debian/Ubuntu, Fedora, and Alpine Linux
 #
 
-# Detect distro
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     DISTRO_ID="${ID_LIKE:-$ID}"
+    case "$ID" in
+        rocky) DISTRO_ID="rocky" ;;
+    esac
 else
     echo "⚠️  Cannot detect distribution. Skipping package uninstallation."
     DISTRO_ID="unknown"
@@ -27,7 +29,7 @@ remove_packages() {
     *debian* | *ubuntu*)
         sudo apt remove --purge -y "${packages[@]}" 2>/dev/null || true
         ;;
-    *fedora*)
+    *fedora*|*rocky*)
         sudo dnf remove -y "${packages[@]}" 2>/dev/null || true
         ;;
     *alpine*)
@@ -56,8 +58,7 @@ case "$DISTRO_ID" in
         sudo snap remove signal-desktop 2>/dev/null || true
     fi
     ;;
-*fedora*)
-    # signal/typora may be installed as Flatpaks on Fedora
+*fedora*|*rocky*)
     if command -v flatpak &>/dev/null; then
         flatpak uninstall -y org.signal.Signal 2>/dev/null || true
     fi

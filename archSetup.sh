@@ -49,19 +49,24 @@ if [ -d "$HOME/configScripts" ]; then
     echo "Existing configScripts directory found. Removing it..."
     rm -rf "$HOME/configScripts"
 fi
-cd ~
-git clone https://github.com/JevonThompsonx/configScripts.git
-chmod +x ~/configScripts/*.sh
+cd ~ || exit 1
+if command -v gh &>/dev/null && gh auth status &>/dev/null; then
+    gh repo clone JevonThompsonx/configScripts
+else
+    echo "⚠️  gh CLI not authenticated. Clone manually: gh repo clone JevonThompsonx/configScripts"
+    echo "⚠️  Or install gh and run auth first: gh auth login"
+fi
+chmod +x ~/configScripts/*.sh 2>/dev/null || true
 
 # --- FIX: Execute the DOTFILE setup script, NOT the main setup script ---
 # The original script called itself (archSetup.sh), causing a loop.
 # We now call 'configScripts.sh' which handles cloning your dotfiles (nvim, fish, etc.).
-echo "Running dotfile cloning script from configScripts repository..."
-if [ -f "$HOME/configScripts/configScripts.sh" ]; then
-    echo "Executing ~/configScripts/configScripts.sh..."
-    "$HOME/configScripts/configScripts.sh"
+echo "Running config clone from configScripts repository..."
+if [ -f "$HOME/configScripts/cloneConfigs.sh" ]; then
+    echo "Executing ~/configScripts/cloneConfigs.sh..."
+    bash "$HOME/configScripts/cloneConfigs.sh"
 else
-    echo "Warning: ~/configScripts/configScripts.sh not found. Skipping dotfile cloning."
+    echo "Warning: ~/configScripts/cloneConfigs.sh not found. Skipping dotfile cloning."
 fi
 
 # Install Ghostty terminal (assuming zigGhosttyInstall.sh handles dependencies)
@@ -92,10 +97,17 @@ curl -fsSL https://bun.sh/install | bash
 echo "Bun version:"
 ~/.bun/bin/bun -v
 
-# Add bun to PATH for current session and future sessions
+# Add bun, cargo/bin to PATH
 export PATH="$HOME/.bun/bin:$PATH"
-echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.profile # For bash/zsh
-echo 'set -U fish_user_paths $HOME/.bun/bin $fish_user_paths' >> ~/.config/fish/config.fish # For fish
+echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.profile
+
+# Add cargo/bin + bun/bin to fish PATH (idempotent)
+FISH_CONFIG_DIR="$HOME/.config/fish"
+mkdir -p "$FISH_CONFIG_DIR"
+if ! grep -qF 'cargo/bin' "$FISH_CONFIG_DIR/config.fish" 2>/dev/null; then
+    echo 'set -gx PATH $HOME/.cargo/bin $HOME/.bun/bin $HOME/.local/bin $PATH' >> "$FISH_CONFIG_DIR/config.fish"
+    echo "Added cargo/bin, bun/bin to fish config.fish"
+fi
 
 # Rust/Cargo install (OS-agnostic)
 echo "Installing Rust and Cargo..."

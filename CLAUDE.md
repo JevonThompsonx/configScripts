@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a collection of system setup and configuration scripts for Linux distributions (Arch, Debian/Ubuntu, Fedora). The scripts automate the installation of development tools, applications, and personal dotfiles to quickly configure new systems or servers.
+This is a collection of system setup and configuration scripts for Linux distributions (Arch, Debian/Ubuntu, Fedora, Rocky Linux). The scripts automate the installation of development tools, applications, and personal dotfiles to quickly configure new systems or servers.
 
 ## Architecture
 
@@ -16,6 +16,7 @@ This is a collection of system setup and configuration scripts for Linux distrib
    - Includes desktop-specific tools (Variety wallpaper manager, GNOME Calendar)
    - Optional Omarchy desktop environment configuration (Arch only)
    - Optional Surface device power management
+   - Supports Arch, Debian/Ubuntu, Fedora, and Rocky Linux
 
 2. **Server/Headless Setup** (`server/unifiedSetup.sh`)
    - Minimal CLI-only environment
@@ -25,7 +26,16 @@ This is a collection of system setup and configuration scripts for Linux distrib
 
 ### Distribution Detection Pattern
 
-All unified setup scripts use `/etc/os-release` to detect the distribution and execute the appropriate `setup_arch()`, `setup_debian()`, or `setup_fedora()` function. The pattern:
+All unified setup scripts use `/etc/os-release` to detect the distribution and execute the appropriate `setup_arch()`, `setup_debian()`, or `setup_fedora()` function. Rocky Linux is detected via direct `$ID` check (not `$ID_LIKE`) because Rocky does not inherit from another distro in its identifier:
+
+```bash
+case "$ID" in
+  rocky) setup_rocky ;;
+  *)     # fallback to ID_LIKE logic ...
+esac
+```
+
+General pattern for other distros:
 
 ```bash
 . /etc/os-release
@@ -49,7 +59,7 @@ Both setup scripts follow this execution order:
 
 ### Setup Scripts
 
-- **`unifiedSetup.sh`** - Desktop setup for Arch/Debian/Fedora with GUI apps
+- **`unifiedSetup.sh`** - Desktop setup for Arch/Debian/Fedora/Rocky Linux with GUI apps
 - **`server/unifiedSetup.sh`** - Server setup without GUI dependencies
 - **`archSetup.sh`** - Legacy Arch-specific setup (use `unifiedSetup.sh` instead)
 - **`debianSetup.sh`** - Legacy Debian-specific setup (use `unifiedSetup.sh` instead)
@@ -58,7 +68,7 @@ Both setup scripts follow this execution order:
 ### Configuration Scripts
 
 - **`cloneConfigs.sh`** - Clones personal dotfiles (Alacritty, Fish, wallpapers) via GitHub CLI
-- **`powerManagement.sh`** - Disables all power-saving features for server/always-on operation
+- **`powerManagement.sh`** - Disables all power-saving features for server/always-on operation (supports Arch, Debian, Fedora, Rocky Linux)
 - **`surfacePowerManagement.sh`** - Surface-specific power management (includes thermald, cpupower)
 
 ### Server Utilities
@@ -125,6 +135,7 @@ Installed to `~/.npm-global` to avoid permission issues:
 
 - `selene` - Lua linter
 - `atuin` - Shell history sync tool
+- `zoxide`, `eza`, `starship` - installed via cargo on Rocky Linux (EPEL 10 does not include these packages yet)
 
 ## Security: ClamAV Malware Scanning
 
@@ -207,6 +218,7 @@ The unified setup scripts handle ClamAV installation per distribution:
 - **Arch**: `clamav` package
 - **Debian/Ubuntu**: `clamav clamav-daemon` packages
 - **Fedora**: `clamav clamav-update` packages
+- **Rocky Linux**: `clamav clamav-update` packages (same EPEL source as Fedora)
 
 ### Security Notes
 
@@ -368,6 +380,57 @@ npm install -g neovim tree-sitter-cli
 
 **Solution**: When running over Tailscale SSH, the `tailscale up` command warns about disconnection. Accept the risk or run it manually after the main script completes.
 
+### Rocky Linux SELinux Context Blocks Sudo
+
+**Error**: `sudo: /etc/sudoers is world writable` or `sudo: effective uid is not 0, is sudo installed setuid root?`
+
+**Cause**: SELinux user context set to `user_u` instead of `unconfined_u` when fish shell was configured via `chsh`.
+
+**Solution**: Reset SELinux user mapping for the user:
+```bash
+sudo semanage login -a -s unconfined_u <username>
+# or modify existing:
+sudo semanage login -m -s unconfined_u <username>
+```
+Log out and back in for the change to take effect. Verify with `id -Z`.
+
+### EPEL 10 Missing Packages (Rocky Linux 10+)
+
+**Problem**: EPEL 10 repositories lack packages like `zoxide`, `eza`, `starship`, and some Rust tooling.
+
+**Workaround**: Install these via Cargo:
+```bash
+cargo install zoxide eza starship
+```
+
+### Flatpak Requires `--system` With Sudo (Rocky Linux)
+
+**Issue**: `flatpak install` fails with permission errors on Rocky Linux.
+
+**Solution**: Always use `sudo flatpak install --system` instead of user-mode installation:
+```bash
+sudo flatpak install --system flathub <app-id>
+```
+
+### Private Repo Clone Fails (Rocky Linux)
+
+**Issue**: `gh repo clone` for private repositories fails with authentication errors.
+
+**Solution**: Ensure `gh auth login` is completed first. On Rocky Linux with sudo-based workflows, run `gh auth login` as the regular user (not sudo):
+```bash
+gh auth login  # as normal user, use browser-based auth
+```
+
+### fish shell Missing `cargo/bin` and `bun/bin` in PATH (Rocky Linux)
+
+**Problem**: Cargo and Bun binaries not found after fish shell setup on Rocky Linux.
+
+**Solution**: Add explicit PATH entries to `~/.config/fish/config.fish`:
+```fish
+set -gx PATH $HOME/.cargo/bin $PATH
+set -gx PATH $HOME/.bun/bin $PATH
+```
+
 ## Important Notes
 
 - **Reboot required** after running setup scripts for all changes to take effect
@@ -376,3 +439,4 @@ npm install -g neovim tree-sitter-cli
 - Scripts add PATH exports to `~/.profile` for persistence across reboots
 - **Run from anywhere**: Scripts now work correctly regardless of current directory
 - **GitHub CLI**: Scripts require interaction for `gh auth login` - prepare to copy the device code to a browser
+- **SELinux (Fedora/Rocky)**: Setting fish as login shell via `chsh` may require SELinux context fix. Run `semanage login -a -s unconfined_u` for fish shell to avoid permission issues with sudo and system domains. Install `policycoreutils-python-utils` if `semanage` is unavailable.
