@@ -22,7 +22,9 @@ sudo -v  # Cache sudo credentials, prompt once
 
 # ── 1. Enable contrib, non-free, non-free-firmware repos ──────────────────────
 header "Enabling contrib/non-free repos"
-sudo sed -i 's/main$/main contrib non-free non-free-firmware/' /etc/apt/sources.list
+# Handle both formats: "main non-free-firmware" or just "main"
+sudo sed -i 's/ main$/ main contrib non-free non-free-firmware/' /etc/apt/sources.list
+sudo sed -i 's/ main non-free-firmware$/ main contrib non-free non-free-firmware/' /etc/apt/sources.list
 sudo apt update
 
 # ── 2. Install basic tools ────────────────────────────────────────────────────
@@ -159,10 +161,20 @@ sudo apt install -y tailscale
 sudo systemctl enable --now tailscaled
 log "After script: sudo tailscale up"
 
-# ── 15. Install NVIDIA drivers ────────────────────────────────────────────────
-header "Installing NVIDIA drivers"
-sudo apt install -y nvidia-driver firmware-misc-nonfree nvidia-settings || warn "NVIDIA driver install failed — may need different version"
-log "Reboot required for NVIDIA driver to load"
+# ── 15. Install GPU drivers (auto-detect) ─────────────────────────────────────
+header "Installing GPU drivers"
+if lspci | grep -qi 'vga.*nvidia' || lspci | grep -qi '3d.*nvidia'; then
+    log "NVIDIA GPU detected — installing proprietary drivers"
+    sudo apt install -y nvidia-driver firmware-misc-nonfree nvidia-settings || warn "NVIDIA driver install failed"
+    log "Reboot required for NVIDIA driver"
+elif lspci | grep -qi 'vga.*intel'; then
+    log "Intel GPU detected — installing Intel drivers"
+    sudo apt install -y intel-media-va-driver libva-drm2 libva2 i965-va-driver || true
+elif lspci | grep -qi 'vga.*amd\|vga.*ati'; then
+    log "AMD GPU detected — using Mesa drivers (already installed)"
+else
+    warn "Unknown GPU — Mesa drivers installed as fallback"
+fi
 
 # ── 16. Vulkan support ────────────────────────────────────────────────────────
 header "Installing Vulkan support"
