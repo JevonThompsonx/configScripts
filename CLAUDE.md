@@ -1,442 +1,86 @@
-# CLAUDE.md
+# Repository Guidance
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Supported Architecture
 
-## Repository Overview
+`unifiedSetup.sh` is the workstation entrypoint. It sources small, testable Bash
+libraries:
 
-This is a collection of system setup and configuration scripts for Linux distributions (Arch, Debian/Ubuntu, Fedora, Rocky Linux). The scripts automate the installation of development tools, applications, and personal dotfiles to quickly configure new systems or servers.
+- `lib/common.sh`: CLI, prompts, distro/desktop detection, and risky-action gates.
+- `lib/packages.sh`: capability manifest, native -> AUR -> Flatpak fallback,
+  optional AI npm tools, Debian aliases, and Arch rustup initialization.
+- `lib/configs.sh`: public/private auth rules and non-destructive Git handling.
+- `lib/desktop.sh`: validated wallpaper selection and opt-in user timer/backends.
+- `lib/neovim.sh`: Neovim 0.11.2 check, verified official fallback, optional sync.
 
-## Architecture
+All libraries must remain safe to source. Keep the main guard in
+`unifiedSetup.sh`. `cloneConfigs.sh` is only a wrapper for `--configs-only`.
 
-### Two-Tier Setup System
+## Safety Invariants
 
-1. **Desktop/Workstation Setup** (`unifiedSetup.sh`)
-   - Full GUI environment with desktop applications
-   - Installs terminal emulators, fonts, GUI apps (Calibre, AppImageLauncher, Nextcloud)
-   - Includes desktop-specific tools (Variety wallpaper manager, GNOME Calendar)
-   - Optional Omarchy desktop environment configuration (Arch only)
-   - Optional Surface device power management
-   - Supports Arch, Debian/Ubuntu, Fedora, and Rocky Linux
+- Normal no-flag use prompts for profile and detected desktop defaults, offers AI
+  tools, prints the plan, and requires confirmation before package/config writes.
+- Track explicit CLI choices with `PROFILE_EXPLICIT`, `DESKTOP_EXPLICIT`, and
+  `AI_TOOLS_EXPLICIT`; non-interactive mode must never call `read`.
+- Non-interactive mode must not prompt, replace configs, authenticate, change
+  shells, enable/start services, run `tailscale up`, or enable wallpaper timers.
+- Never recursively delete a user config, app profile, theme, or managed install.
+- Config clone destinations must be under `HOME`; clone to a temporary sibling
+  before moving an existing path to a timestamped backup.
+- Public configs use Git HTTPS. Private configs use `gh` only after explicit
+  selection and confirmed authentication. Never print auth output or tokens.
+- Do not add third-party distro repositories, bootstrap an AUR helper, use
+  curl-pipe-shell, change firewall/storage/power/SELinux settings, or reboot.
+- Flatpak is user-scoped and is only a fallback after native and existing Arch
+  AUR options fail.
+- Omarchy defaults and theme directories are protected. Use its native
+  `omarchy-theme-bg-set` with a selected nonempty image argument; do not add
+  wallpaper daemons or start the generic Hyprpaper service.
+- Generic Hyprland rotation requires the selected `hyprpaper` capability and its
+  user service. Sway uses `swaymsg`; GNOME uses `gsettings`.
+- Docker/libvirt are separately confirmed system services. Syncthing is a
+  separately confirmed user service. Verify units exist before enabling them.
+- `JevonThompsonx/nvim` is the config source of truth. Do not generate Lua or
+  clone a starter over it.
 
-2. **Server/Headless Setup** (`server/unifiedSetup.sh`)
-   - Minimal CLI-only environment
-   - No GUI applications, terminal emulators, or desktop fonts
-   - Server-optimized: includes 24/7 always-on power management option
-   - Focuses on development tools and remote access (Tailscale)
+## Package Manifest
 
-### Distribution Detection Pattern
+Manifest records use:
 
-All unified setup scripts use `/etc/os-release` to detect the distribution and execute the appropriate `setup_arch()`, `setup_debian()`, or `setup_fedora()` function. Rocky Linux is detected via direct `$ID` check (not `$ID_LIKE`) because Rocky does not inherit from another distro in its identifier:
+```text
+group|capability|command|pacman|apt|dnf|zypper|apk|aur|flatpak
+```
+
+The first package in a comma-separated native field represents the capability.
+Install available secondary packages independently; a missing secondary must not
+block the valid primary package.
+Install failures are capability-local and must not abort the manifest loop.
+Desktop groups must remain isolated to the selected desktop.
+
+Arch Rust maps only to `rustup`; never combine it with `rust`. Stable toolchain
+initialization is a separate explicit prompt when Cargo is absent. AI tools use
+only `npm install --global --prefix "$HOME/.local"`, never sudo or global npm
+configuration. `--ai-tools` is the only non-interactive opt-in.
+
+GNOME clipboard grouping depends on `XDG_SESSION_TYPE`: Wayland uses
+`wl-clipboard`; X11/unknown uses `xclip` and `xsel`. Debian command aliases for
+`fdfind`/`batcat` belong under `~/.local/bin` and must preserve existing files.
+
+## Tests
+
+Run before reporting changes:
 
 ```bash
-case "$ID" in
-  rocky) setup_rocky ;;
-  *)     # fallback to ID_LIKE logic ...
-esac
+bash tests/run.sh
+bash -n unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh
 ```
 
-General pattern for other distros:
-
-```bash
-. /etc/os-release
-DISTRO_ID="${ID_LIKE:-$ID}"  # Handles derivatives (e.g., Ubuntu → debian)
-```
-
-### Common Installation Pattern
-
-Both setup scripts follow this execution order:
-1. Dependency checks (curl, git)
-2. Distribution-specific package installation
-3. Language runtime installation (Rust, Bun)
-4. Development tools via Cargo and NPM
-5. Service configuration (Tailscale)
-6. Personal dotfiles cloning (via GitHub CLI)
-7. LazyVim setup (Neovim distribution)
-8. Shell configuration (Fish shell)
-9. Neovim plugin sync
-
-## Key Scripts
-
-### Setup Scripts
-
-- **`unifiedSetup.sh`** - Desktop setup for Arch/Debian/Fedora/Rocky Linux with GUI apps
-- **`server/unifiedSetup.sh`** - Server setup without GUI dependencies
-- **`archSetup.sh`** - Legacy Arch-specific setup (use `unifiedSetup.sh` instead)
-- **`debianSetup.sh`** - Legacy Debian-specific setup (use `unifiedSetup.sh` instead)
-- **`fedora.sh`** - Legacy Fedora-specific setup (use `unifiedSetup.sh` instead)
-
-### Configuration Scripts
-
-- **`cloneConfigs.sh`** - Clones personal dotfiles (Alacritty, Fish, wallpapers) via GitHub CLI
-- **`powerManagement.sh`** - Disables all power-saving features for server/always-on operation (supports Arch, Debian, Fedora, Rocky Linux)
-- **`surfacePowerManagement.sh`** - Surface-specific power management (includes thermald, cpupower)
-
-### Server Utilities
-
-- **`server/cloudflareIPsInteractive.sh`** - Interactive UFW rule creator for Cloudflare IP ranges
-- **`server/cloudflareIPscustom.sh`** - Presumably custom/non-interactive version
-
-### Security Scripts
-
-- **`clamav-scan.sh`** - Deep scan script with Telegram notifications (full system scan, 1-4 hours)
-- **`clamav-scan-fast.sh`** - Fast scan script with Telegram notifications (critical directories, 5-30 min)
-- **`setup-clamav-cronjob.sh`** - Interactive setup for automated ClamAV scanning
-- **`example.env`** - Template for Telegram bot credentials and scan configuration
-- **`CLAMAV-README.md`** - Complete documentation for ClamAV setup
-
-## Personal Configuration Repositories
-
-The scripts clone these GitHub repositories for dotfiles:
-- `JevonThompsonx/alacritty` → `~/.config/alacritty`
-- `JevonThompsonx/fish` → `~/.config/fish`
-- `JevonThompsonx/WPs` → `~/Pictures/WPs` (wallpapers)
-- `alacritty/alacritty-theme` → `~/.config/alacritty/themes/alacritty-theme`
-
-## Development Environment
-
-### Core Tools Installed
-
-**Languages & Runtimes:**
-- Node.js/NPM (via package manager)
-- Bun (via curl install script)
-- Rust/Cargo (via rustup)
-- Python 3 with pip and venv
-- Go
-- Ruby
-- PHP
-- Java (OpenJDK 17)
-
-**CLI Tools:**
-- Neovim (primary editor with Lazy plugin manager)
-- Fish shell (default shell)
-- Git + GitHub CLI (`gh`)
-- Tailscale (VPN/mesh network)
-- zoxide, eza (modern replacements for cd/ls)
-- ripgrep, lazygit
-- fastfetch (system info)
-- ffmpeg
-
-**Neovim Ecosystem:**
-- LazyVim distribution (Neovim configuration framework)
-- Tree-sitter CLI
-- Language servers: Tailwind CSS LSS
-- Linters: Selene (Lua)
-- Python support: python3-pynvim
-- Clipboard: xsel, xclip
-
-### NPM Global Packages
-
-Installed to `~/.npm-global` to avoid permission issues:
-- `neovim` - Neovim Node.js provider
-- `tree-sitter-cli` - Parser generator tool
-- `@tailwindcss/language-server` - CSS framework LSP (desktop only)
-
-### Cargo Crates
-
-- `selene` - Lua linter
-- `atuin` - Shell history sync tool
-- `zoxide`, `eza`, `starship` - installed via cargo on Rocky Linux (EPEL 10 does not include these packages yet)
-
-## Security: ClamAV Malware Scanning
-
-Both `unifiedSetup.sh` and `server/unifiedSetup.sh` now install ClamAV for malware protection. After running the unified setup, configure automated scanning with Telegram notifications.
-
-### Dual-Scan Architecture
-
-**Fast Scan (5:00 AM):**
-- Quick morning check of critical directories
-- Scans: `~/Documents`, `~/Downloads`, `~/Desktop`, `~/scripts`
-- Excludes: caches, build artifacts, `.git`, `node_modules`
-- Runtime: 5-30 minutes
-- Skips virus database update (uses evening's update)
-
-**Deep Scan (8:00 PM):**
-- Full system scan
-- Scans: Entire `/home` directory (configurable)
-- Updates virus database before scanning
-- Runtime: 1-4 hours
-- Comprehensive malware detection
-
-### Quick Setup (New System)
-
-```bash
-# 1. ClamAV is already installed by unified setup scripts
-
-# 2. Run the ClamAV setup
-cd ~/scripts/configScripts
-bash setup-clamav-cronjob.sh
-
-# 3. Choose "Dual Scan" mode
-# 4. Accept defaults (5 AM fast, 8 PM deep)
-# 5. Test notification in Telegram
-```
-
-### Telegram Bot Configuration
-
-The setup requires a Telegram bot for notifications:
-1. Create bot: Message @BotFather in Telegram, send `/newbot`
-2. Get Chat ID: Message @userinfobot to get your user ID
-3. Configure: Credentials stored in `~/.clamav-telegram.env` (secured with 600 permissions)
-
-### Configuration Files
-
-- `~/.clamav-telegram.env` - Bot credentials and scan directories (user-specific, not in git)
-- `example.env` - Template for new systems
-- `~/.clamav-logs/` - Scan logs and reports (auto-cleaned after 30 days)
-
-### Notification Format
-
-Telegram notifications include:
-- Scan type indicator (⚡ Fast or 🔍 Deep)
-- Hostname and timestamp
-- Files/directories scanned count
-- Threat detection (✅ Clean or 🚨 Infected)
-- Scan duration
-- Infected file list (if any threats found)
-
-### Manual Operations
-
-```bash
-# Run scans manually
-bash ~/scripts/configScripts/clamav-scan-fast.sh  # Fast scan
-bash ~/scripts/configScripts/clamav-scan.sh       # Deep scan
-
-# View scheduled scans
-crontab -l | grep clamav
-
-# Update virus database
-sudo freshclam
-
-# Check logs
-ls -lh ~/.clamav-logs/
-grep "FOUND" ~/.clamav-logs/*.log  # Check for threats
-```
-
-### Distribution-Specific Installation
-
-The unified setup scripts handle ClamAV installation per distribution:
-- **Arch**: `clamav` package
-- **Debian/Ubuntu**: `clamav clamav-daemon` packages
-- **Fedora**: `clamav clamav-update` packages
-- **Rocky Linux**: `clamav clamav-update` packages (same EPEL source as Fedora)
-
-### Security Notes
-
-- `.env` file permissions: 600 (owner read/write only)
-- Bot token is sensitive - never commit to git
-- Logs contain file paths - secure appropriately
-- Scans run with sudo (required for full system access)
-- Database updates happen during deep scan only
-
-See `CLAMAV-README.md` for complete documentation.
-
-## Testing Scripts
-
-### Running Setup Scripts
-
-**IMPORTANT:** Never run setup scripts as root. They use `sudo` internally:
-
-```bash
-# Desktop setup
-bash unifiedSetup.sh
-
-# Server setup
-bash server/unifiedSetup.sh
-
-# Power management (can be run standalone)
-bash powerManagement.sh
-bash surfacePowerManagement.sh
-```
-
-### Cloudflare UFW Configuration
-
-Interactive mode for adding firewall rules:
-
-```bash
-bash server/cloudflareIPsInteractive.sh
-# Enter port numbers when prompted, then reload UFW:
-sudo ufw reload
-```
-
-## LazyVim Setup
-
-Both unified scripts now automatically install LazyVim, a modern Neovim distribution built on the Lazy plugin manager.
-
-### Setup Process
-
-The `setup_lazyvim()` function:
-1. Checks if LazyVim is already installed by looking for `~/.config/nvim/lua/config/lazy.lua`
-2. Backs up existing Neovim directories with timestamps:
-   - `~/.config/nvim` → `~/.config/nvim.bak.<timestamp>`
-   - `~/.local/share/nvim` → `~/.local/share/nvim.bak.<timestamp>`
-   - `~/.local/state/nvim` → `~/.local/state/nvim.bak.<timestamp>`
-   - `~/.cache/nvim` → `~/.cache/nvim.bak.<timestamp>`
-3. Clones the LazyVim starter template from `https://github.com/LazyVim/starter`
-4. Removes the `.git` folder so you can add it to your own repository
-5. On first launch, Neovim automatically installs all plugins
-
-### Usage Notes
-
-- The script installs the vanilla LazyVim starter template
-- Plugins auto-install on first Neovim launch
-- Run `:LazyHealth` after first launch to verify everything works
-- To customize LazyVim, edit files in `~/.config/nvim/lua/`
-- See LazyVim docs at https://www.lazyvim.org for configuration options
-
-## Script Safety Features
-
-### Error Handling Philosophy
-
-Both unified scripts use **graceful degradation** instead of `set -e`:
-- Non-critical failures continue with warnings (⚠️)
-- Critical failures exit with clear error messages (❌)
-- Success messages confirm completed operations (✅)
-- Scripts provide manual recovery steps when automated steps fail
-
-### Git/GitHub CLI Safety
-
-**Critical fix for permission errors:**
-- Scripts change to `$HOME` before running `gh auth login` or git operations
-- This prevents git permission errors when running from within git repositories
-- Original directory is restored after completion
-
-```bash
-# Change to HOME to avoid git permission issues
-local ORIGINAL_DIR="$PWD"
-cd "$HOME" || { echo "⚠️  Could not change to HOME"; return 1; }
-# ... do git operations ...
-cd "$ORIGINAL_DIR"  # Restore original directory
-```
-
-### Existing Directory Handling
-
-Both unified scripts use non-destructive backups when cloning configs:
-```bash
-# Creates backup with timestamp instead of rm -rf
-mv "$destination_dir" "${destination_dir}.bak.$(date +%s)"
-```
-
-### Package Installation Guards
-
-- Node.js conflict detection: Checks for existing installation before adding to package list
-- NPM permission fix: Configures `~/.npm-global` prefix to avoid sudo requirements
-- Idempotency: Uses `--needed` flag (pacman) and checks for existing installations
-- Package-by-package installation: Loops through packages individually so one failure doesn't block others
-
-### Resilient Function Pattern
-
-Functions return error codes (`return 1`) instead of calling `exit 1`:
-```bash
-install_rust() {
-    if ! curl https://sh.rustup.rs | sh -s -- -y; then
-        echo "⚠️  Rust installation failed. Skipping Rust-based tools."
-        return 1  # Return error, don't exit
-    fi
-}
-```
-
-## Manual Post-Setup Tasks
-
-After running setup scripts, these require manual configuration:
-
-1. **Neovim/LazyVim**:
-   - Launch Neovim - plugins will auto-install on first run
-   - Run `:LazyHealth` to verify everything is working correctly
-   - The scripts automatically install the LazyVim starter template
-2. **Atuin**: Login with `atuin login -u Jevonx && atuin sync`
-3. **Tailscale**: Complete authentication with `sudo tailscale up`
-4. **GNOME Calendar**: Add Nextcloud calendar accounts manually (desktop only)
-5. **Web apps**: Configure web apps in Web App Manager (Proton Mail, ChatGPT, etc.) (desktop only)
-
-## Common Issues and Solutions
-
-### GitHub Authentication Fails
-
-**Error**: `failed to run git: fatal: failed to stat '/root/configScripts/server': Permission denied`
-
-**Solution**: This is now fixed in the updated scripts. They change to `$HOME` before running git/gh commands. If using old scripts:
-```bash
-cd ~
-gh auth login
-gh repo clone JevonThompsonx/fish ~/.config/fish
-```
-
-### Script Stops After Single Error
-
-**Solution**: Updated scripts continue on non-critical errors. If using old scripts with `set -e`, comment it out:
-```bash
-# set -e  # Disable this line
-```
-
-### Cargo/NPM Packages Fail to Install
-
-**Solution**: Scripts now install packages individually. Failed packages are skipped with warnings. Install missing packages manually:
-```bash
-cargo install selene atuin
-npm install -g neovim tree-sitter-cli
-```
-
-### Tailscale Disconnects SSH Session
-
-**Solution**: When running over Tailscale SSH, the `tailscale up` command warns about disconnection. Accept the risk or run it manually after the main script completes.
-
-### Rocky Linux SELinux Context Blocks Sudo
-
-**Error**: `sudo: /etc/sudoers is world writable` or `sudo: effective uid is not 0, is sudo installed setuid root?`
-
-**Cause**: SELinux user context set to `user_u` instead of `unconfined_u` when fish shell was configured via `chsh`.
-
-**Solution**: Reset SELinux user mapping for the user:
-```bash
-sudo semanage login -a -s unconfined_u <username>
-# or modify existing:
-sudo semanage login -m -s unconfined_u <username>
-```
-Log out and back in for the change to take effect. Verify with `id -Z`.
-
-### EPEL 10 Missing Packages (Rocky Linux 10+)
-
-**Problem**: EPEL 10 repositories lack packages like `zoxide`, `eza`, `starship`, and some Rust tooling.
-
-**Workaround**: Install these via Cargo:
-```bash
-cargo install zoxide eza starship
-```
-
-### Flatpak Requires `--system` With Sudo (Rocky Linux)
-
-**Issue**: `flatpak install` fails with permission errors on Rocky Linux.
-
-**Solution**: Always use `sudo flatpak install --system` instead of user-mode installation:
-```bash
-sudo flatpak install --system flathub <app-id>
-```
-
-### Private Repo Clone Fails (Rocky Linux)
-
-**Issue**: `gh repo clone` for private repositories fails with authentication errors.
-
-**Solution**: Ensure `gh auth login` is completed first. On Rocky Linux with sudo-based workflows, run `gh auth login` as the regular user (not sudo):
-```bash
-gh auth login  # as normal user, use browser-based auth
-```
-
-### fish shell Missing `cargo/bin` and `bun/bin` in PATH (Rocky Linux)
-
-**Problem**: Cargo and Bun binaries not found after fish shell setup on Rocky Linux.
-
-**Solution**: Add explicit PATH entries to `~/.config/fish/config.fish`:
-```fish
-set -gx PATH $HOME/.cargo/bin $PATH
-set -gx PATH $HOME/.bun/bin $PATH
-```
-
-## Important Notes
-
-- **Reboot required** after running setup scripts for all changes to take effect
-- **Fish shell** becomes default shell (requires logout/login to activate)
-- **Power management scripts** mask systemd sleep/suspend targets permanently
-- Scripts add PATH exports to `~/.profile` for persistence across reboots
-- **Run from anywhere**: Scripts now work correctly regardless of current directory
-- **GitHub CLI**: Scripts require interaction for `gh auth login` - prepare to copy the device code to a browser
-- **SELinux (Fedora/Rocky)**: Setting fish as login shell via `chsh` may require SELinux context fix. Run `semanage login -a -s unconfined_u` for fish shell to avoid permission issues with sudo and system domains. Install `policycoreutils-python-utils` if `semanage` is unavailable.
+Run ShellCheck if it is already installed; do not install it solely for a check.
+Tests must not use root, network, remote hosts, or real package mutations. Extend
+`tests/run.sh` with temporary HOME, fake `OS_RELEASE_PATH`, PATH shims, or local
+Git repositories.
+
+## Legacy Scope
+
+The distro-specific scripts, `server/`, ClamAV, firewall, uninstall, and power
+management scripts are legacy or specialized standalone tools. Do not invoke
+them from the supported workstation flow. Preserve unrelated changes in them.
