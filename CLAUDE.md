@@ -71,13 +71,24 @@ Run before reporting changes:
 
 ```bash
 bash tests/run.sh
-bash -n unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh
+bash -n unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh tests/containers.sh
 ```
 
 Run ShellCheck if it is already installed; do not install it solely for a check.
 Tests must not use root, network, remote hosts, or real package mutations. Extend
 `tests/run.sh` with temporary HOME, fake `OS_RELEASE_PATH`, PATH shims, or local
-Git repositories.
+Git repositories. `tests/containers.sh` is the exception: distro-matrix dry-runs
+inside containers (needs a runtime + image pulls, never mutates the host).
+
+## Fleet Scope
+
+`lib/fleet.sh` owns `--fleet` parity: mise session PATH, toolchain sync, NM +
+sleep hooks, update-on-boot. Root writes confirm interactively and are skipped
+non-interactive; hook templates must stay secret-free. CachyOS (`cachyos`)
+detects as `pacman` via `ID_LIKE=arch`. `niri` is a valid `--desktop` with a
+`desktop-niri` manifest group and Wayland clipboard; wallpaper rotation warns.
+Agent-manual steps live in `docs/FLEET-PARITY.md`, never as code that prints
+credentials.
 
 ## Legacy Scope
 

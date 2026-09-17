@@ -39,6 +39,7 @@ rocky|rhel fedora|dnf
 opensuse-tumbleweed|suse opensuse|zypper
 alpine||apk
 garuda|arch|pacman
+cachyos|arch|pacman
 linuxmint|ubuntu debian|apt
 EOF
   make_os_release "$file" mystery nowhere
@@ -584,6 +585,79 @@ test_paths_with_spaces() {
     ! path_is_under_home "$HOME/outside-link/config"
 }
 
+test_fleet_flag_and_niri_desktop() {
+  FLEET=0; DESKTOP=auto
+  parse_args --fleet --desktop niri || return 1
+  (( FLEET )) && [[ $DESKTOP == niri ]] || return 1
+  ! parse_args --desktop kde >/dev/null 2>&1 || return 1
+}
+
+test_niri_desktop_selection() {
+  local output=$HOME/selected
+  PROFILE=workstation; DESKTOP=niri
+  package_manifest() {
+    printf '%s\n' 'desktop-niri|niri|n|n|n|n|n|n||' 'desktop-sway|sway|s|s|s|s|s|s||'
+  }
+  install_capability() { printf '%s\n' "$1" >>"$output"; }
+  DISTRO_FAMILY=apt
+  install_profile_packages
+  assert_eq "$(<"$output")" niri || return 1
+  group_selected desktop-wayland || return 1
+}
+
+test_fleet_session_path() {
+  local target
+  DRY_RUN=0; NON_INTERACTIVE=1; FLEET=1
+  unset XDG_CONFIG_HOME
+  fleet_setup_session_path || return 1
+  target=$HOME/.config/environment.d/60-fleet-mise.conf
+  assert_file_contains "$target" '# Managed by configScripts fleet' || return 1
+  assert_file_contains "$target" 'mise/shims' || return 1
+  printf 'custom\n' >"$target"
+  ! fleet_setup_session_path >/dev/null 2>&1 || return 1
+  assert_eq "$(<"$target")" custom || return 1
+}
+
+test_fleet_hook_templates() {
+  local temp disp sleep
+  temp=$(mktemp -d)
+  disp=$temp/dispatcher; sleep=$temp/sleephook
+  fleet_nm_dispatcher "$disp" >/dev/null || return 1
+  fleet_sleep_hook "$sleep" >/dev/null || return 1
+  assert_file_contains "$disp" 'CONNECTIVITY_STATE' || return 1
+  assert_file_contains "$disp" 'tailscale up' || return 1
+  assert_file_contains "$sleep" 'nmcli device connect' || return 1
+  sh -n "$disp" && sh -n "$sleep" || return 1
+}
+
+test_fleet_noninteractive_skips_root() {
+  NON_INTERACTIVE=1; DRY_RUN=0
+  ! confirm_fleet_root "root step" >/dev/null 2>&1 || return 1
+  fleet_setup_network_hooks || return 1
+  fleet_setup_boot_updates || return 1
+}
+
+test_fleet_dry_run_mutates_nothing() {
+  local before after output
+  NON_INTERACTIVE=1; DRY_RUN=1; FLEET=1
+  before=$(ls -A "$HOME")
+  output=$(fleet_setup 2>&1) || return 1
+  after=$(ls -A "$HOME")
+  assert_eq "$after" "$before" || return 1
+  [[ $output == *'Would write'* && $output == *'Would stage'* ]] || return 1
+}
+
+test_fleet_boot_unit_has_no_reboot_or_secrets() {
+  local unit
+  unit=$(mktemp)
+  NON_INTERACTIVE=1; DRY_RUN=1
+  fleet_setup_boot_updates >/dev/null || { rm -f "$unit"; return 1; }
+  rm -f "$unit"
+  grep -E 'reboot' lib/fleet.sh | grep -qv 'auto-reboot' && return 1
+  grep -qE 'token|password|secret|key=' lib/fleet.sh && return 1
+  grep -q 'WantedBy=multi-user.target' lib/fleet.sh || return 1
+}
+
 run_one() {
   local name=$1 fn=$2 temp
   temp=$(mktemp -d)
@@ -619,6 +693,13 @@ run_one 'Neovim minimum version paths' test_neovim_versions
 run_one 'official Neovim archive requires matching SHA256' test_verified_neovim_install
 run_one 'all package families complete end-to-end dry-run orchestration' test_family_end_to_end_dry_runs
 run_one 'paths with spaces remain safely quoted' test_paths_with_spaces
+run_one 'fleet flag parses and niri is a valid desktop' test_fleet_flag_and_niri_desktop
+run_one 'niri desktop selection is isolated with Wayland clipboard' test_niri_desktop_selection
+run_one 'fleet session PATH file is managed and preserves custom files' test_fleet_session_path
+run_one 'fleet hook templates render valid shell' test_fleet_hook_templates
+run_one 'fleet privileged steps are skipped non-interactive' test_fleet_noninteractive_skips_root
+run_one 'fleet dry-run mutates nothing and logs staged steps' test_fleet_dry_run_mutates_nothing
+run_one 'fleet boot unit has no reboot or secret material' test_fleet_boot_unit_has_no_reboot_or_secrets
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 ((FAIL == 0))

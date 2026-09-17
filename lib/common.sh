@@ -11,6 +11,7 @@ SKIP_CONFIGS=0
 PRIVATE_CONFIGS=0
 AI_TOOLS=0
 AI_TOOLS_EXPLICIT=0
+FLEET=0
 OS_RELEASE_PATH=${OS_RELEASE_PATH:-/etc/os-release}
 DISTRO_FAMILY=
 DISTRO_ID=
@@ -32,12 +33,15 @@ Options:
   --dry-run                      Print actions without changing the system
   --non-interactive              Never prompt; use safe defaults
   --profile core|workstation|full
-  --desktop auto|hyprland|sway|gnome|none
+  --desktop auto|hyprland|sway|niri|gnome|none
   --configs-only                 Only manage selected configuration repos
   --skip-configs                 Do not manage configuration repos
   --private-configs              Opt into private repos (requires existing auth
                                  in non-interactive mode)
   --ai-tools                     Install selected AI CLIs with user-local npm
+  --fleet                        Fleet parity: mise PATH, toolchain, NM hooks,
+                                 update-on-boot (root steps confirm, skipped
+                                 non-interactive)
 
 OS_RELEASE_PATH may point to a test os-release file.
 EOF
@@ -59,13 +63,14 @@ parse_args() {
       --skip-configs) SKIP_CONFIGS=1 ;;
       --private-configs) PRIVATE_CONFIGS=1 ;;
       --ai-tools) AI_TOOLS=1; AI_TOOLS_EXPLICIT=1 ;;
+      --fleet) FLEET=1 ;;
       *) die "Unknown option: $1"; usage >&2; return 1 ;;
     esac
     shift
   done
 
   case "$PROFILE" in core|workstation|full) ;; *) die "Invalid profile: $PROFILE"; return 1 ;; esac
-  case "$DESKTOP" in auto|hyprland|sway|gnome|none) ;; *) die "Invalid desktop: $DESKTOP"; return 1 ;; esac
+  case "$DESKTOP" in auto|hyprland|sway|niri|gnome|none) ;; *) die "Invalid desktop: $DESKTOP"; return 1 ;; esac
   if (( CONFIGS_ONLY && SKIP_CONFIGS )); then
     die "--configs-only and --skip-configs cannot be combined"
     return 1
@@ -111,6 +116,8 @@ resolve_desktop() {
     DESKTOP=hyprland
   elif [[ ${XDG_CURRENT_DESKTOP:-} == *[Ss][Ww][Aa][Yy]* ]] || [[ -n ${SWAYSOCK:-} ]]; then
     DESKTOP=sway
+  elif [[ ${XDG_CURRENT_DESKTOP:-} == *[Nn][Ii][Rr][Ii]* ]]; then
+    DESKTOP=niri
   elif [[ ${XDG_CURRENT_DESKTOP:-} == *[Gg][Nn][Oo][Mm][Ee]* ]]; then
     DESKTOP=gnome
   else
@@ -134,7 +141,7 @@ choose_interactive_options() {
     PROFILE=$(choose_value "Profile (core/workstation/full)" workstation "core workstation full") || return 1
   fi
   if (( ! DESKTOP_EXPLICIT )); then
-    DESKTOP=$(choose_value "Desktop (hyprland/sway/gnome/none)" "$DESKTOP" "hyprland sway gnome none") || return 1
+    DESKTOP=$(choose_value "Desktop (hyprland/sway/niri/gnome/none)" "$DESKTOP" "hyprland sway niri gnome none") || return 1
   fi
   if (( ! CONFIGS_ONLY && ! AI_TOOLS_EXPLICIT )) && confirm "Install optional OpenCode, Claude, Codex, Copilot, and Pi CLIs?"; then
     AI_TOOLS=1
@@ -162,7 +169,7 @@ run() {
 }
 
 print_plan() {
-  log "Plan: profile=$PROFILE desktop=$DESKTOP packages=$((! CONFIGS_ONLY)) configs=$((! SKIP_CONFIGS)) private=$PRIVATE_CONFIGS ai-tools=$AI_TOOLS"
+  log "Plan: profile=$PROFILE desktop=$DESKTOP packages=$((! CONFIGS_ONLY)) configs=$((! SKIP_CONFIGS)) private=$PRIVATE_CONFIGS ai-tools=$AI_TOOLS fleet=$FLEET"
   (( IS_OMARCHY )) && log "Omarchy detected: existing desktop/theme defaults are protected"
 }
 

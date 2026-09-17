@@ -70,10 +70,13 @@ configuration changes. A failed package does not block the remaining tools.
 
 ## Desktop Safety
 
-Use `--desktop hyprland`, `sway`, `gnome`, or `none`; `auto` only detects the
-current session and never replaces it. Hyprland and Sway select `wl-clipboard`.
+Use `--desktop hyprland`, `sway`, `niri`, `gnome`, or `none`; `auto` only detects the
+current session and never replaces it. Hyprland, Sway, and Niri select `wl-clipboard`.
 GNOME selects `wl-clipboard` in a Wayland session and `xclip`/`xsel` for X11 or
-unknown-session fallback.
+unknown-session fallback. Niri installs the compositor package on Arch-family
+systems only (no native package elsewhere — third-party repositories are never
+added, so other families report it unavailable); wallpaper rotation is
+unsupported there and reports a clear warning.
 
 Omarchy detection protects its Hyprland, Neovim, Waybar, Wofi, Foot, and theme
 defaults. Conflicting config repos require confirmation and are skipped by
@@ -135,9 +138,20 @@ fake PATH commands, fake os-release files, and local Git repositories.
 
 ```bash
 bash tests/run.sh
-bash -n unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh
-shellcheck unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh  # if installed
+bash tests/containers.sh  # distro-matrix dry-run, needs docker/podman + pulls
+bash -n unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh tests/containers.sh
+shellcheck unifiedSetup.sh cloneConfigs.sh lib/*.sh tests/run.sh tests/containers.sh  # if installed
 ```
+
+## Fleet Parity (`--fleet`)
+
+`./unifiedSetup.sh --fleet` brings a fresh host to the shared baseline: mise
+shims PATH, `mise install` toolchain sync, Tailscale NetworkManager +
+suspend/resume hooks, and a log-only update-on-boot unit. Privileged steps
+confirm interactively and are skipped non-interactive. Anything needing
+credentials or a physical presence stays manual — see `docs/FLEET-PARITY.md`
+for the agent runbook (opencode/auth placement, Syncthing pairing, Seafile
+seeding, MacBook T1 notes, Niri keybinds).
 
 ## Legacy Scripts
 

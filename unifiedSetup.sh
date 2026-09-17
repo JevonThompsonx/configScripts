@@ -14,6 +14,8 @@ source "$SCRIPT_DIR/lib/configs.sh"
 source "$SCRIPT_DIR/lib/desktop.sh"
 # shellcheck source=lib/neovim.sh
 source "$SCRIPT_DIR/lib/neovim.sh"
+# shellcheck source=lib/fleet.sh
+source "$SCRIPT_DIR/lib/fleet.sh"
 
 main() {
   local parse_status=0
@@ -41,6 +43,7 @@ main() {
     install_ai_tools
     ensure_neovim
     offer_risky_actions
+    fleet_setup
   fi
 
   if (( ! SKIP_CONFIGS )); then

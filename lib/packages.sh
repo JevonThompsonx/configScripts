@@ -46,6 +46,7 @@ desktop-sway|sway|sway|sway|sway|sway|sway|sway||
 desktop-sway|waybar|waybar|waybar|waybar|waybar|waybar|waybar||
 desktop-sway|wofi|wofi|wofi|wofi|wofi|wofi|wofi||
 desktop-gnome|gnome-shell|gnome-shell|gnome-shell|gnome-shell|gnome-shell|gnome-shell|gnome||
+desktop-niri|niri|niri|niri||||||
 workstation|brave-browser|brave-browser||||||brave-bin|com.brave.Browser
 workstation|chromium|chromium|chromium|chromium|chromium|chromium|chromium||org.chromium.Chromium
 workstation|bitwarden|bitwarden||||||bitwarden|com.bitwarden.desktop
@@ -55,6 +56,8 @@ workstation|obsidian|obsidian||||||obsidian|md.obsidian.Obsidian
 workstation|joplin|joplin-desktop||||||joplin-appimage|net.cozic.joplin_desktop
 workstation|seafile|seafile-applet|seafile-client|seafile-gui|seafile-client|seafile-client|seafile-client||com.seafile.Client
 workstation|syncthing|syncthing|syncthing|syncthing|syncthing|syncthing|syncthing||
+workstation|podman|podman|podman|podman|podman|podman|podman||
+workstation|flatpak|flatpak|flatpak|flatpak|flatpak|flatpak|flatpak||
 workstation|stremio|stremio||||||stremio|com.stremio.Stremio
 workstation|bottles|bottles||||||bottles|com.usebottles.bottles
 workstation|steam|steam|steam|steam-installer|steam|steam|steam||com.valvesoftware.Steam
@@ -87,7 +90,7 @@ group_selected() {
     core) return 0 ;;
     workstation) [[ $PROFILE == workstation || $PROFILE == full ]] ;;
     full) [[ $PROFILE == full ]] ;;
-    desktop-wayland) [[ $PROFILE != core && ( $DESKTOP == hyprland || $DESKTOP == sway || ( $DESKTOP == gnome && ${XDG_SESSION_TYPE:-} == wayland ) ) ]] ;;
+    desktop-wayland) [[ $PROFILE != core && ( $DESKTOP == hyprland || $DESKTOP == sway || $DESKTOP == niri || ( $DESKTOP == gnome && ${XDG_SESSION_TYPE:-} == wayland ) ) ]] ;;
     desktop-x11) [[ $PROFILE != core && $DESKTOP == gnome && ${XDG_SESSION_TYPE:-} != wayland ]] ;;
     desktop-*) [[ $PROFILE != core && $1 == desktop-$DESKTOP ]] ;;
     *) return 1 ;;
