@@ -17,7 +17,8 @@ physical presence that must never be stored in this repo.
   (root; confirmed interactively, skipped non-interactive).
 - Update-on-boot unit `fleet-update-boot.service`, per-family package manager,
   log-only, no auto-reboot (root; confirmed interactively, skipped
-  non-interactive).
+  non-interactive). Standing owner-approved policy: unattended upgrades at
+  every boot are intended on fleet hosts.
 
 ## Manual (agent checklist, in order)
 
