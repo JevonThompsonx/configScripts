@@ -703,5 +703,18 @@ run_one 'fleet privileged steps are skipped non-interactive' test_fleet_noninter
 run_one 'fleet dry-run mutates nothing and logs staged steps' test_fleet_dry_run_mutates_nothing
 run_one 'fleet boot unit has no reboot or secret material' test_fleet_boot_unit_has_no_reboot_or_secrets
 
+
+test_qubes_dry_run() {
+  local root=$ROOT q
+  for q in template personal docs media; do
+    bash -n "$root/qubes/qubesSetup.sh" || return 1
+    OS_RELEASE_PATH=/etc/os-release HOME=/tmp/qubestest NON_INTERACTIVE=1 DRY_RUN=1 \
+      bash "$root/qubes/qubesSetup.sh" --profile "$q" --dry-run >/dev/null 2>&1 || return 1
+  done
+  bash "$root/qubes/qubesSetup.sh" --list-profiles >/dev/null 2>&1 || return 1
+}
+
+run_one 'qubes dry-run and list-profiles work' test_qubes_dry_run
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 ((FAIL == 0))

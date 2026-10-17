@@ -33,7 +33,7 @@ check_dependencies() {
 setup_arch() {
     print_header "Running Arch Linux Setup"
     sudo pacman -Syu --noconfirm
-    local packages=(tree git curl wget gnupg unzip ffmpeg github-cli neovim npm zoxide fastfetch fish eza tailscale python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk xsel xclip clamav)
+    local packages=(tree git curl wget gnupg unzip ffmpeg github-cli neovim npm zoxide fastfetch fish eza netbird python python-pip go ripgrep lazygit luarocks ruby php jdk-openjdk xsel xclip clamav)
     sudo pacman -S --noconfirm --needed "${packages[@]}"
 }
 
@@ -43,10 +43,11 @@ setup_debian() {
     sudo mkdir -p /etc/apt/keyrings
     wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
     echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
-    local codename=$(lsb_release -cs)
-    curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.noarmor.gpg" | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-    curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.tailscale-keyring.list" | sudo tee /etc/apt/sources.list.d/tailscale.list
-    sudo apt update && sudo apt install -y gh neovim nodejs npm zoxide fastfetch fish ffmpeg eza tailscale python3 python3-pip golang-go ripgrep lazygit luarocks ruby-full php openjdk-17-jdk xsel xclip clamav
+    sudo apt-get install -y ca-certificates curl gnupg
+    sudo install -d -m 0755 /usr/share/keyrings
+    curl -sSL https://pkgs.netbird.io/debian/public.key | sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg
+    echo 'deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main' | sudo tee /etc/apt/sources.list.d/netbird.list
+    sudo apt update && sudo apt install -y gh neovim nodejs npm zoxide fastfetch fish ffmpeg eza netbird python3 python3-pip golang-go ripgrep lazygit luarocks ruby-full php openjdk-17-jdk xsel xclip clamav
 }
 
 setup_fedora() {
@@ -54,7 +55,7 @@ setup_fedora() {
     sudo dnf upgrade --refresh -y
     sudo dnf install -y "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
     sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-    sudo dnf install -y git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit neovim nodejs npm golang go gh tailscale ffmpeg python3-pip luarocks ruby php java-17-openjdk-devel xsel xclip clamav
+    sudo dnf install -y git curl wget unzip fish fzf zoxide ripgrep eza fastfetch lazygit neovim nodejs npm golang go gh netbird ffmpeg python3-pip luarocks ruby php java-17-openjdk-devel xsel xclip clamav
 }
 
 setup_rocky() {
@@ -77,9 +78,18 @@ setup_rocky() {
         fi
     done
 
-    if ! command -v tailscale &>/dev/null; then
-        curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null || echo "⚠️  Tailscale install failed"
-        sudo systemctl enable --now tailscaled 2>/dev/null || true
+    if ! command -v netbird &>/dev/null; then
+        sudo tee /etc/yum.repos.d/netbird.repo >/dev/null <<'EOF'
+[netbird]
+name=netbird
+baseurl=https://pkgs.netbird.io/yum/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.netbird.io/yum/repodata/repomd.xml.key
+repo_gpgcheck=1
+EOF
+        sudo dnf install -y netbird 2>/dev/null || echo "⚠️  NetBird install failed"
+        sudo systemctl enable --now netbird 2>/dev/null || true
     fi
 
     if ! command -v cargo &>/dev/null; then
@@ -113,7 +123,7 @@ setup_alpine() {
     sudo apk update
     sudo apk upgrade --available --update-cache
 
-    local packages=(tree git curl wget gnupg unzip ffmpeg nodejs npm zoxide fish tailscale python3 py3-pip go ripgrep luarocks ruby php83 openjdk17 xsel xclip clamav clamav-daemon freshclam github-cli bash shadow build-base util-linux gcompat libc6-compat gzip tree-sitter-cli)
+    local packages=(tree git curl wget gnupg unzip ffmpeg nodejs npm zoxide fish netbird python3 py3-pip go ripgrep luarocks ruby php83 openjdk17 xsel xclip clamav clamav-daemon freshclam github-cli bash shadow build-base util-linux gcompat libc6-compat gzip tree-sitter-cli)
     sudo apk add "${packages[@]}"
 
     # 3. Force the Neovim 0.11.x and Libuv/Libluv bridge

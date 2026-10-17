@@ -122,14 +122,23 @@ echo "🎨 Applying configurations and setting up services..."
 mkdir -p ~/Documents/Projects
 
 
-# Install Tailscale if not present (generic install, no official repo)
-if ! command -v tailscale &>/dev/null; then
-    echo "Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null || echo "⚠️  Tailscale install failed"
+# Install NetBird if not present (official repo)
+if ! command -v netbird &>/dev/null; then
+    echo "Installing NetBird..."
+    sudo tee /etc/yum.repos.d/netbird.repo >/dev/null <<'EOF'
+[netbird]
+name=netbird
+baseurl=https://pkgs.netbird.io/yum/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.netbird.io/yum/repodata/repomd.xml.key
+repo_gpgcheck=1
+EOF
+    sudo dnf install -y netbird || echo "⚠️  NetBird install failed"
 fi
 
 # Enable and start system services
-sudo systemctl enable --now tailscaled 2>/dev/null || echo "⚠️  tailscaled service not available"
+sudo systemctl enable --now netbird 2>/dev/null || echo "⚠️  netbird service not available"
 
 
 # Update font cache
@@ -141,8 +150,8 @@ fc-cache -fv
 # ---
 echo "🔑 Final user authentications and setup..."
 
-# Start Tailscale
-sudo tailscale up
+# Start NetBird
+sudo netbird up --allow-server-ssh --enable-ssh-root
 
 # Log in to Atuin and sync
 echo "Logging in to Atuin..."

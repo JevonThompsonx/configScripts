@@ -235,16 +235,20 @@ offer_risky_actions() {
   if command -v fish >/dev/null 2>&1 && [[ ${SHELL:-} != */fish ]] && confirm "Change the login shell to fish?"; then
     run chsh -s "$(command -v fish)" || warn "Could not change login shell"
   fi
-  if command -v netbird >/dev/null 2>&1 && confirm "Run 'sudo netbird up' now (authless SSH, root login enabled)?"; then
-    local netbird_setup_key=''
+  if command -v netbird >/dev/null 2>&1 && confirm "Run 'sudo netbird up' now (SSH server + root login enabled)?"; then
+    local netbird_setup_key='' disable_ssh_auth=0
+    if confirm "Disable SSH JWT auth (authless SSH for any peer with network access)?"; then
+      disable_ssh_auth=1
+    fi
     if confirm "Use a NetBird setup key for unattended registration?"; then
       read -r -p "NetBird setup key: " netbird_setup_key || netbird_setup_key=''
     fi
+    local nb_flags=(--allow-server-ssh --enable-ssh-root)
+    (( disable_ssh_auth )) && nb_flags+=(--disable-ssh-auth)
     if [[ -n $netbird_setup_key ]]; then
-      run sudo netbird up --setup-key "$netbird_setup_key" --allow-server-ssh --disable-ssh-auth --enable-ssh-root || warn "NetBird login did not complete"
-    else
-      run sudo netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root || warn "NetBird login did not complete"
+      nb_flags=(--setup-key "$netbird_setup_key" "${nb_flags[@]}")
     fi
+    run sudo netbird up "${nb_flags[@]}" || warn "NetBird login did not complete"
   fi
   command -v systemctl >/dev/null 2>&1 && offer_selected_services
 }

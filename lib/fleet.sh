@@ -24,7 +24,7 @@ fleet_nm_dispatcher() {
 # Managed by configScripts fleet: reassert netbird on full connectivity.
 # $1 is the interface, $2 is the action. Root-owned, env is NM-provided.
 if [ "${2:-}" = connectivity-change ] && [ "${CONNECTIVITY_STATE:-}" = FULL ]; then
-  /usr/bin/netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root >/dev/null 2>&1 || true
+  /usr/bin/netbird up >/dev/null 2>&1 || true
 fi
 EOF
   printf '%s' "$src"
@@ -63,7 +63,7 @@ done
 
 # Reassert netbird once the link has had a moment. Detached on purpose:
 # the hook must return promptly; `up` reuses stored prefs.
-( sleep 5; /usr/bin/netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root >/dev/null 2>&1 || true ) &
+( sleep 5; /usr/bin/netbird up >/dev/null 2>&1 || true ) &
 EOF
   printf '%s' "$src"
 }

@@ -153,18 +153,16 @@ for app in "${FLATPAKS[@]}"; do
     sudo flatpak install --system -y flathub "$app" || warn "Failed to install $app"
 done
 
-# ── 14. Install Tailscale ─────────────────────────────────────────────────────
-header "Installing Tailscale"
-DEBIAN_CODENAME="$(. /etc/os-release && echo "$VERSION_CODENAME")"
-[ -z "$DEBIAN_CODENAME" ] && DEBIAN_CODENAME="$(lsb_release -cs 2>/dev/null || echo "trixie")"
-curl -fsSL "https://pkgs.tailscale.com/stable/debian/${DEBIAN_CODENAME}.noarmor.gpg" \
-    | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-curl -fsSL "https://pkgs.tailscale.com/stable/debian/${DEBIAN_CODENAME}.tailscale-keyring.list" \
-    | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+# ── 14. Install NetBird ───────────────────────────────────────────────────────
+header "Installing NetBird"
+sudo apt-get install -y ca-certificates curl gnupg
+sudo install -d -m 0755 /usr/share/keyrings
+curl -sSL https://pkgs.netbird.io/debian/public.key | sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg
+echo 'deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main' | sudo tee /etc/apt/sources.list.d/netbird.list
 sudo apt update
-sudo apt install -y tailscale
-sudo systemctl enable --now tailscaled
-log "After script: sudo tailscale up"
+sudo apt install -y netbird
+sudo systemctl enable --now netbird
+log "After script: sudo netbird up --allow-server-ssh --enable-ssh-root"
 
 # ── 15. Install GPU drivers (auto-detect) ─────────────────────────────────────
 header "Installing GPU drivers"

@@ -33,7 +33,14 @@ parse_args() {
       --non-interactive) NON_INTERACTIVE=1; shift ;;
       --dry-run) DRY_RUN=1; shift ;;
       --no-trim) QUBES_TRIM=0; shift ;;
-      --help) echo "Usage: qubesSetup.sh [--profile template|personal|docs|media] [--non-interactive] [--dry-run] [--no-trim]"; return 2 ;;
+      --help) echo "Usage: qubesSetup.sh [--profile template|personal|docs|media] [--non-interactive] [--dry-run] [--no-trim] [--list-profiles]"; return 2 ;;
+      --list-profiles)
+        echo "Available qube profiles:"
+        echo "  template  - install everything (ready for any distro line)"
+        echo "  personal  - zen browser + brave browser"
+        echo "  docs      - seafile + libreoffice + obsidian"
+        echo "  media     - chromium browser"
+        return 2 ;;
       --target) shift 2 ;;
       --qubes) shift ;;
       --desktop) shift 2 ;;
@@ -140,10 +147,6 @@ install_native() {
   for cap in $1; do
     pkg=$(pkg_name "$cap" "$DISTRO_FAMILY")
     [[ -z $pkg ]] && continue
-    if command -v "$cap" >/dev/null 2>&1 2>/dev/null; then
-      # command name may differ from cap; skip command check for these
-      :
-    fi
     case "$DISTRO_FAMILY" in
       pacman)
         if pacman -Q "$pkg" >/dev/null 2>&1; then log "$cap already installed"; continue; fi
@@ -260,6 +263,14 @@ trim_qube() {
       run flatpak uninstall --user -y "$fid" 2>/dev/null || warn "Could not remove flatpak $fid"
     fi
   done
+  # Clean package caches from trimmed/unused downloads.
+  case "$DISTRO_FAMILY" in
+    apt) run sudo apt-get clean 2>/dev/null || true ;;
+    dnf) run sudo dnf clean all 2>/dev/null || true ;;
+    pacman) run sudo pacman -Sc --noconfirm 2>/dev/null || true ;;
+    zypper) run sudo zypper clean --all 2>/dev/null || true ;;
+    apk) run sudo apk cache clean 2>/dev/null || true ;;
+  esac
 }
 
 install_fish_shell() {
@@ -278,13 +289,30 @@ install_fish_shell() {
 
 netbird_up() {
   command -v netbird >/dev/null 2>&1 || return 0
-  if (( NON_INTERACTIVE )) || confirm "Run 'sudo netbird up' now (authless SSH, root login enabled)?"; then
-    run sudo netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root || warn "NetBird login did not complete"
+  if command -v systemctl >/dev/null 2>&1; then
+    run sudo systemctl enable --now netbird 2>/dev/null || warn "Could not enable NetBird service"
+  fi
+  local nb_flags=(--allow-server-ssh --enable-ssh-root)
+  if (( NON_INTERACTIVE )) || confirm "Disable SSH JWT auth (authless SSH for any peer with network access)?"; then
+    nb_flags+=(--disable-ssh-auth)
+  fi
+  if (( NON_INTERACTIVE )) || confirm "Run 'sudo netbird up' now?"; then
+    run sudo netbird up "${nb_flags[@]}" || warn "NetBird login did not complete"
+  fi
+}
+
+qubes_env_check() {
+  if command -v qubesdb-read >/dev/null 2>&1 || [[ -d /var/lib/qubes ]]; then
+    log "Qubes environment detected"
+    if [[ ! -f /usr/share/qubes/marker-template ]]; then
+      warn "This does not look like a template (marker-template missing). Packages installed in an appVM will not persist; run in a template instead."
+    fi
   fi
 }
 
 main() {
   parse_args "$@" || { local s=$?; (( s == 2 )) && return 0; return $s; }
+  qubes_env_check
   detect_platform || return 1
   choose_profile || return 1
   log "Profile: $PROFILE"

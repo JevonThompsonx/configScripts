@@ -26,7 +26,7 @@ sudo pacman -S --noconfirm \
     foot \
     fish \
     eza \
-    tailscale \
+    netbird \
     ttf-fira-code \
     python \
     python-pip \
@@ -78,10 +78,10 @@ else
     echo "Warning: ~/configScripts/zigGhosttyInstall.sh not found. Skipping Ghostty installation."
 fi
 
-# Tailscale setup
-echo "Enabling and starting Tailscale..."
-sudo systemctl enable --now tailscaled
-sudo tailscale up
+# NetBird setup
+echo "Enabling and starting NetBird..."
+sudo systemctl enable --now netbird
+sudo netbird up --allow-server-ssh --enable-ssh-root
 
 # GitHub CLI authentication
 echo "Authenticating GitHub CLI (requires user interaction)..."
