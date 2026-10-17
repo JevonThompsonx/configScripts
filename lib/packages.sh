@@ -35,7 +35,7 @@ core|ffmpeg|ffmpeg|ffmpeg|ffmpeg|ffmpeg-free|ffmpeg|ffmpeg||
 core|imagemagick|magick|imagemagick|imagemagick|ImageMagick|ImageMagick|imagemagick||
 core|yt-dlp|yt-dlp|yt-dlp|yt-dlp|yt-dlp|yt-dlp|yt-dlp||
 core|caddy|caddy|caddy|caddy|caddy|caddy|caddy||
-core|tailscale|tailscale|tailscale|tailscale|tailscale|tailscale|tailscale||
+core|netbird|netbird|netbird|netbird|netbird|netbird|netbird|netbird-bin||
 desktop-wayland|wayland-clipboard|wl-copy|wl-clipboard|wl-clipboard|wl-clipboard|wl-clipboard|wl-clipboard||
 desktop-x11|x11-clipboard|xclip|xclip,xsel|xclip,xsel|xclip,xsel|xclip,xsel|xclip,xsel||
 desktop-hyprland|hyprland|Hyprland|hyprland|hyprland|hyprland|hyprland|hyprland||

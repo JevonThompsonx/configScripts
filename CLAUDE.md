@@ -22,7 +22,7 @@ All libraries must remain safe to source. Keep the main guard in
 - Track explicit CLI choices with `PROFILE_EXPLICIT`, `DESKTOP_EXPLICIT`, and
   `AI_TOOLS_EXPLICIT`; non-interactive mode must never call `read`.
 - Non-interactive mode must not prompt, replace configs, authenticate, change
-  shells, enable/start services, run `tailscale up`, or enable wallpaper timers.
+  shells, enable/start services, run `netbird up`, or enable wallpaper timers.
 - Never recursively delete a user config, app profile, theme, or managed install.
 - Config clone destinations must be under `HOME`; clone to a temporary sibling
   before moving an existing path to a timestamped backup.

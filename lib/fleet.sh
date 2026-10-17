@@ -21,10 +21,10 @@ fleet_nm_dispatcher() {
   local src=$1
   cat >"$src" <<'EOF'
 #!/bin/sh
-# Managed by configScripts fleet: reassert tailscale on full connectivity.
+# Managed by configScripts fleet: reassert netbird on full connectivity.
 # $1 is the interface, $2 is the action. Root-owned, env is NM-provided.
 if [ "${2:-}" = connectivity-change ] && [ "${CONNECTIVITY_STATE:-}" = FULL ]; then
-  /usr/bin/tailscale up >/dev/null 2>&1 || true
+  /usr/bin/netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root >/dev/null 2>&1 || true
 fi
 EOF
   printf '%s' "$src"
@@ -61,9 +61,9 @@ sleep 3
   /usr/bin/nmcli device connect "$dev" >/dev/null 2>&1 || true
 done
 
-# Reassert tailscale once the link has had a moment. Detached on purpose:
-# the hook must return promptly; `up` with no flags reuses stored prefs.
-( sleep 5; /usr/bin/tailscale up >/dev/null 2>&1 || true ) &
+# Reassert netbird once the link has had a moment. Detached on purpose:
+# the hook must return promptly; `up` reuses stored prefs.
+( sleep 5; /usr/bin/netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root >/dev/null 2>&1 || true ) &
 EOF
   printf '%s' "$src"
 }
@@ -75,12 +75,12 @@ fleet_setup_network_hooks() {
     return 0
   fi
   tmpdir=$(mktemp -d) || return 1
-  dispatcher=$tmpdir/50-fleet-tailscale
+  dispatcher=$tmpdir/50-fleet-netbird
   sleep_hook=$tmpdir/50-fleet-net-resume
   fleet_nm_dispatcher "$dispatcher" >/dev/null
   fleet_sleep_hook "$sleep_hook" >/dev/null
   if confirm_fleet_root "Install NetworkManager dispatcher + suspend/resume hooks (needs root)?"; then
-    fleet_write_file_root /etc/NetworkManager/dispatcher.d/50-fleet-tailscale "$dispatcher" || warn "Could not install the dispatcher hook"
+    fleet_write_file_root /etc/NetworkManager/dispatcher.d/50-fleet-netbird "$dispatcher" || warn "Could not install the dispatcher hook"
     fleet_write_file_root /usr/lib/systemd/system-sleep/50-fleet-net-resume "$sleep_hook" || warn "Could not install the sleep hook"
   fi
   rm -rf "$tmpdir"

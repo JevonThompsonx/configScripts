@@ -4,6 +4,28 @@
 workstation setup. It supports Arch/Omarchy, Debian/Ubuntu, Fedora/Rocky/RHEL,
 openSUSE, and Alpine package-manager families.
 
+## Qubes OS
+
+`qubesSetup.sh` (and `qubes/qubesSetup.sh`) sets up a Qubes qube or template.
+It prompts for a profile, or use `--profile`:
+
+```bash
+./qubesSetup.sh --profile template   # install all apps (ready for any distro line)
+./qubesSetup.sh --profile personal   # zen browser + brave browser
+./qubesSetup.sh --profile docs       # seafile + libreoffice + obsidian
+./qubesSetup.sh --profile media      # chromium browser
+```
+
+Wrappers are provided: `personalQubeSetup.sh`, `docsQubeSetup.sh`, `mediaQubeSetup.sh`,
+`templateQubeSetup.sh`.
+
+All profiles install fish and (on Arch) an AUR helper (yay/paru). Terminal tooling is
+intentionally skipped (Qubes provides its own terminal). When started from a full
+template, a profile trims packages that belong to other profiles.
+
+NetBird is installed/enabled only in the template profile; `netbird up` runs with
+`--allow-server-ssh --disable-ssh-auth --enable-ssh-root` (authless SSH, root login).
+
 ## Quick Start
 
 ```bash
@@ -21,7 +43,7 @@ package or config mutations. Explicit `--profile` and `--desktop` values suppres
 their respective selection prompts.
 
 `--non-interactive` never logs into private repositories, replaces existing
-config paths, changes the login shell, enables services, runs `tailscale up`, or
+config paths, changes the login shell, enables services, runs `netbird up`, or
 enables wallpaper rotation. Private repos additionally require
 `--private-configs` and an existing `gh` login in non-interactive mode.
 Optional AI tools require `--ai-tools` in non-interactive mode.
@@ -31,7 +53,7 @@ For test fixtures, `OS_RELEASE_PATH` may override `/etc/os-release`.
 ## Profiles
 
 - `core`: shell, development tools, Atuin, Bun, Mise, PowerShell, media utilities,
-  Caddy, and Tailscale.
+  Caddy, and NetBird.
 - `workstation`: core plus the selected desktop and desktop applications.
 - `full`: workstation plus emulation, Docker, QEMU/libvirt, and virt-manager.
 
