@@ -40,10 +40,10 @@ sudo apt remove --purge -y flatpak gnome-software-plugin-flatpak 2>/dev/null || 
 # ── 3. Remove added apt sources ──────────────────────────────────────────────
 header "Removing added apt sources"
 sudo rm -f /etc/apt/sources.list.d/github-cli.list
-sudo rm -f /etc/apt/sources.list.d/tailscale.list
+sudo rm -f /etc/apt/sources.list.d/netbird.list
 sudo rm -f /etc/apt/sources.list.d/nodesource.list
 sudo rm -f /usr/share/keyrings/githubcli-archive-keyring.gpg
-sudo rm -f /usr/share/keyrings/tailscale-archive-keyring.gpg
+sudo rm -f /usr/share/keyrings/netbird-archive-keyring.gpg
 # NodeSource cleanup (list file name varies)
 sudo rm -f /etc/apt/sources.list.d/nodesource*.list 2>/dev/null || true
 sudo apt update || true
@@ -63,8 +63,8 @@ PACKAGES=(
     neovim python3-pynvim
     # go
     golang-go
-    # tailscale
-    tailscale
+    # netbird
+    netbird
     # vulkan
     libvulkan1 vulkan-loader mesa-vulkan-drivers
     # containers

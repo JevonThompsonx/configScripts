@@ -1,26 +1,26 @@
 #!/bin/bash
 #
-# This script configures UFW to work securely with Docker and Tailscale.
+# This script configures UFW to work securely with Docker and NetBird.
 #
 # 1. Sets default policies: deny incoming, allow outgoing.
 # 2. Allows SSH to prevent accidental lockout.
-# 3. Allows all traffic on the 'tailscale0' interface.
+# 3. Allows all traffic on the 'wt0' interface.
 # 4. Idempotently adds the 'ufw-docker' fix to /etc/ufw/after.rules.
 # 5. Reloads and enables UFW.
 #
 
 set -e # Exit immediately if any command fails
 
-echo "🚀 Starting UFW configuration for Tailscale and Docker..."
+echo "🚀 Starting UFW configuration for NetBird and Docker..."
 
 # --- 1. Set Default Policies ---
 echo "[1/5] Setting default policies (deny incoming, allow outgoing)..."
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-# --- 2. Allow Essential & Tailscale Traffic ---
-echo "[2/5] Allowing SSH and Tailscale..."
+# --- 2. Allow Essential & NetBird Traffic ---
+echo "[2/5] Allowing SSH and NetBird..."
 sudo ufw allow ssh comment 'Allow SSH connections'
-sudo ufw allow in on tailscale0 comment 'Allow all traffic from Tailscale tailnet'
+sudo ufw allow in on wt0 comment 'Allow all traffic from NetBird tailnet'
 
 # --- 3. Apply Docker Fix ---
 echo "[3/5] Applying ufw-docker fix..."

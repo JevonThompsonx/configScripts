@@ -60,18 +60,17 @@ sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.lis
 sudo apt update # Update after adding Eza repo
 sudo apt install -y eza
 
-# Tailscale install
-echo "Installing Tailscale..."
-sudo mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-# Based on your log, you are running Ubuntu "noble".
-# We need to explicitly use the noble repository for Tailscale.
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
-sudo apt update # Update after adding Tailscale repo
-sudo apt install -y tailscale
-sudo systemctl enable tailscaled
-sudo systemctl start tailscaled
-sudo tailscale up
+# NetBird install
+echo "Installing NetBird..."
+sudo apt-get install -y ca-certificates curl gnupg
+sudo install -d -m 0755 /usr/share/keyrings
+curl -sSL https://pkgs.netbird.io/debian/public.key | sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg
+echo 'deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main' | sudo tee /etc/apt/sources.list.d/netbird.list
+sudo apt update # Update after adding NetBird repo
+sudo apt install -y netbird
+sudo systemctl enable netbird
+sudo systemctl start netbird
+sudo netbird up --allow-server-ssh --enable-ssh-root
 
 # GitHub CLI authentication
 echo "Authenticating GitHub CLI (requires user interaction)..."

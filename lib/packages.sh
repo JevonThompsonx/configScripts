@@ -218,8 +218,56 @@ install_capability() {
   return 1
 }
 
+ensure_netbird_repo() {
+  command -v netbird >/dev/null 2>&1 && return 0
+  (( DRY_RUN )) && { log "[dry-run] would ensure NetBird repository"; return 0; }
+  (( NON_INTERACTIVE )) && return 0
+  confirm "Add the official NetBird package repository for $DISTRO_ID?" || return 0
+  case "$DISTRO_FAMILY" in
+    apt)
+      run sudo apt-get install -y ca-certificates curl gnupg || return 1
+      run sudo install -d -m 0755 /usr/share/keyrings
+      if [[ ! -f /usr/share/keyrings/netbird-archive-keyring.gpg ]]; then
+        run bash -c 'curl -sSL https://pkgs.netbird.io/debian/public.key | sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg' || return 1
+      fi
+      if [[ ! -f /etc/apt/sources.list.d/netbird.list ]]; then
+        run bash -c 'echo "deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main" | sudo tee /etc/apt/sources.list.d/netbird.list' || return 1
+      fi
+      run sudo apt-get update || warn "apt-get update failed"
+      ;;
+    dnf)
+      if [[ ! -f /etc/yum.repos.d/netbird.repo ]]; then
+        run sudo tee /etc/yum.repos.d/netbird.repo >/dev/null <<'EOF'
+[netbird]
+name=netbird
+baseurl=https://pkgs.netbird.io/yum/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.netbird.io/yum/repodata/repomd.xml.key
+repo_gpgcheck=1
+EOF
+      fi
+      if command -v dnf >/dev/null 2>&1; then
+        run sudo dnf config-manager --add-repo /etc/yum.repos.d/netbird.repo 2>/dev/null || run sudo dnf config-manager addrepo --from-repofile=/etc/yum.repos.d/netbird.repo 2>/dev/null || true
+      fi
+      ;;
+    zypper)
+      if ! zypper lr 2>/dev/null | grep -q netbird; then
+        run sudo zypper addrepo https://pkgs.netbird.io/yum/ netbird || return 1
+      fi
+      ;;
+    apk)
+      # Alpine community repo provides netbird; ensure community enabled is out of scope here.
+      ;;
+    pacman)
+      # Arch uses AUR (netbird-bin); handled by ensure_aur_helper + install_capability.
+      ;;
+  esac
+}
+
 install_profile_packages() {
   local group capability command_name pac apt dnf zypper apk aur flatpak_id native
+  ensure_netbird_repo || true
   while IFS='|' read -r group capability command_name pac apt dnf zypper apk aur flatpak_id; do
     group_selected "$group" || continue
     native=$(package_field "$pac" "$apt" "$dnf" "$zypper" "$apk")

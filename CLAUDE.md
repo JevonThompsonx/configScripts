@@ -90,6 +90,15 @@ detects as `pacman` via `ID_LIKE=arch`. `niri` is a valid `--desktop` with a
 Agent-manual steps live in `docs/FLEET-PARITY.md`, never as code that prints
 credentials.
 
+## Qubes Scope
+
+`qubes/qubesSetup.sh` (and `unifiedSetup.sh --qubes`) sets up a Qubes qube or
+template. It prompts for a profile (template/personal/docs/media), installs fish
+plus an AUR helper on Arch, and skips terminal tooling (Qubes provides its own
+terminal). NetBird is installed/enabled only in the template profile, with
+`netbird up` using `--allow-server-ssh --enable-ssh-root` (SSH JWT auth disable
+is prompted). Running in a non-template qube warns that packages won't persist.
+
 ## Legacy Scope
 
 The distro-specific scripts, `server/`, ClamAV, firewall, uninstall, and power
