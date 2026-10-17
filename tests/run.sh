@@ -80,6 +80,7 @@ EOF
   output=$(main <<'EOF'
 
 
+
 n
 n
 EOF
@@ -89,6 +90,7 @@ EOF
 
   PROFILE=workstation; DESKTOP=auto; PROFILE_EXPLICIT=0; DESKTOP_EXPLICIT=0; AI_TOOLS=0; AI_TOOLS_EXPLICIT=0
   output=$(main <<'EOF'
+
 core
 none
 n

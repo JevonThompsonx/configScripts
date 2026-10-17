@@ -4,6 +4,9 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+TARGET=${TARGET:-auto}
+ORIGINAL_ARGS=("$@")
+
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 # shellcheck source=lib/packages.sh
@@ -26,6 +29,12 @@ main() {
   if (( EUID == 0 )) && [[ ${SETUP_ALLOW_ROOT_FOR_TESTS:-0} != 1 ]] && (( ! DRY_RUN )); then
     die "Run as a regular user. This script invokes sudo only for native packages."
     return 1
+  fi
+
+  choose_target || return 1
+  if [[ $TARGET == qubes ]]; then
+    log "Delegating to Qubes setup..."
+    PROFILE= DESKTOP= exec "$SCRIPT_DIR/qubes/qubesSetup.sh" "${ORIGINAL_ARGS[@]}"
   fi
 
   detect_platform || return 1

@@ -7,6 +7,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+_incoming_profile=${PROFILE:-}
+_incoming_desktop=${DESKTOP:-}
 # Reuse common helpers when available.
 if [[ -r "$ROOT/lib/common.sh" ]]; then
   # shellcheck source=/dev/null
@@ -32,7 +34,14 @@ parse_args() {
       --dry-run) DRY_RUN=1; shift ;;
       --no-trim) QUBES_TRIM=0; shift ;;
       --help) echo "Usage: qubesSetup.sh [--profile template|personal|docs|media] [--non-interactive] [--dry-run] [--no-trim]"; return 2 ;;
-      *) die "Unknown option: $1"; return 1 ;;
+      --target) shift 2 ;;
+      --qubes) shift ;;
+      --desktop) shift 2 ;;
+      --profile) PROFILE=$2; shift 2 ;;
+      --fleet|--ai-tools|--private-configs|--skip-configs|--configs-only) shift ;;
+      --non-interactive) NON_INTERACTIVE=1; shift ;;
+      --dry-run) DRY_RUN=1; shift ;;
+      *) warn "Ignoring option: $1"; shift ;;
     esac
   done
 }
