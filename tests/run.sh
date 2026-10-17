@@ -80,6 +80,7 @@ EOF
   output=$(main <<'EOF'
 
 
+
 n
 n
 EOF
@@ -89,6 +90,7 @@ EOF
 
   PROFILE=workstation; DESKTOP=auto; PROFILE_EXPLICIT=0; DESKTOP_EXPLICIT=0; AI_TOOLS=0; AI_TOOLS_EXPLICIT=0
   output=$(main <<'EOF'
+
 core
 none
 n
@@ -248,7 +250,7 @@ test_dry_run_no_mutation() {
 test_noninteractive_risky_actions() {
   local bin=$HOME/bin log_file=$HOME/log prompt_file=$HOME/prompted
   mkdir -p "$bin"
-  for name in fish tailscale systemctl chsh sudo; do
+  for name in fish netbird systemctl chsh sudo; do
     cat >"$bin/$name" <<'EOF'
 #!/usr/bin/env bash
 printf '%s %s\n' "$(basename "$0")" "$*" >>"$TEST_LOG"
@@ -625,7 +627,7 @@ test_fleet_hook_templates() {
   fleet_nm_dispatcher "$disp" >/dev/null || return 1
   fleet_sleep_hook "$sleep" >/dev/null || return 1
   assert_file_contains "$disp" 'CONNECTIVITY_STATE' || return 1
-  assert_file_contains "$disp" 'tailscale up' || return 1
+  assert_file_contains "$disp" 'netbird up' || return 1
   assert_file_contains "$sleep" 'nmcli device connect' || return 1
   sh -n "$disp" && sh -n "$sleep" || return 1
 }

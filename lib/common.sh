@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-PROFILE=workstation
-DESKTOP=auto
+PROFILE=${PROFILE-workstation}
+DESKTOP=${DESKTOP-auto}
 PROFILE_EXPLICIT=0
 DESKTOP_EXPLICIT=0
 NON_INTERACTIVE=0
@@ -12,6 +12,7 @@ PRIVATE_CONFIGS=0
 AI_TOOLS=0
 AI_TOOLS_EXPLICIT=0
 FLEET=0
+TARGET=${TARGET:-auto}
 OS_RELEASE_PATH=${OS_RELEASE_PATH:-/etc/os-release}
 DISTRO_FAMILY=
 DISTRO_ID=
@@ -42,6 +43,9 @@ Options:
   --fleet                        Fleet parity: mise PATH, toolchain, NM hooks,
                                  update-on-boot (root steps confirm, skipped
                                  non-interactive)
+  --target baremetal|qubes       Setup target (default: prompt, or baremetal
+                                 non-interactive)
+  --qubes                        Shortcut for --target qubes
 
 OS_RELEASE_PATH may point to a test os-release file.
 EOF
@@ -64,13 +68,20 @@ parse_args() {
       --private-configs) PRIVATE_CONFIGS=1 ;;
       --ai-tools) AI_TOOLS=1; AI_TOOLS_EXPLICIT=1 ;;
       --fleet) FLEET=1 ;;
+      --target)
+        [[ $# -ge 2 ]] || { die "--target requires a value"; return 1; }
+        TARGET=$2; shift ;;
+      --qubes) TARGET=qubes ;;
       *) die "Unknown option: $1"; usage >&2; return 1 ;;
     esac
     shift
   done
 
-  case "$PROFILE" in core|workstation|full) ;; *) die "Invalid profile: $PROFILE"; return 1 ;; esac
-  case "$DESKTOP" in auto|hyprland|sway|niri|gnome|none) ;; *) die "Invalid desktop: $DESKTOP"; return 1 ;; esac
+  case "$TARGET" in auto|baremetal|qubes) ;; *) die "Invalid target: $TARGET"; return 1 ;; esac
+  if [[ $TARGET != qubes ]]; then
+    case "$PROFILE" in core|workstation|full) ;; *) die "Invalid profile: $PROFILE"; return 1 ;; esac
+    case "$DESKTOP" in auto|hyprland|sway|niri|gnome|none) ;; *) die "Invalid desktop: $DESKTOP"; return 1 ;; esac
+  fi
   if (( CONFIGS_ONLY && SKIP_CONFIGS )); then
     die "--configs-only and --skip-configs cannot be combined"
     return 1
@@ -133,6 +144,20 @@ choose_value() {
     *" $answer "*) printf '%s' "$answer" ;;
     *) die "Invalid choice: $answer"; return 1 ;;
   esac
+}
+
+choose_target() {
+  (( NON_INTERACTIVE )) && { [[ $TARGET == auto ]] && TARGET=baremetal; return 0; }
+  [[ $TARGET != auto ]] && return 0
+  local choice
+  read -r -p "Setup target (baremetal/qubes) [baremetal]: " choice || return 1
+  choice=${choice:-baremetal}
+  case "$choice" in
+    q|qubes) TARGET=qubes ;;
+    b|baremetal|"") TARGET=baremetal ;;
+    *) die "Invalid target: $choice"; return 1 ;;
+  esac
+  return 0
 }
 
 choose_interactive_options() {
@@ -210,8 +235,16 @@ offer_risky_actions() {
   if command -v fish >/dev/null 2>&1 && [[ ${SHELL:-} != */fish ]] && confirm "Change the login shell to fish?"; then
     run chsh -s "$(command -v fish)" || warn "Could not change login shell"
   fi
-  if command -v tailscale >/dev/null 2>&1 && confirm "Run 'sudo tailscale up' now?"; then
-    run sudo tailscale up || warn "Tailscale login did not complete"
+  if command -v netbird >/dev/null 2>&1 && confirm "Run 'sudo netbird up' now (authless SSH, root login enabled)?"; then
+    local netbird_setup_key=''
+    if confirm "Use a NetBird setup key for unattended registration?"; then
+      read -r -p "NetBird setup key: " netbird_setup_key || netbird_setup_key=''
+    fi
+    if [[ -n $netbird_setup_key ]]; then
+      run sudo netbird up --setup-key "$netbird_setup_key" --allow-server-ssh --disable-ssh-auth --enable-ssh-root || warn "NetBird login did not complete"
+    else
+      run sudo netbird up --allow-server-ssh --disable-ssh-auth --enable-ssh-root || warn "NetBird login did not complete"
+    fi
   fi
   command -v systemctl >/dev/null 2>&1 && offer_selected_services
 }
