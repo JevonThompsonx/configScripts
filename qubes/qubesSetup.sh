@@ -7,6 +7,11 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# When running as root (common in Qubes templates), make sudo a no-op wrapper.
+if (( EUID == 0 )); then
+  sudo() { "$@"; }
+fi
+
 _incoming_profile=${PROFILE:-}
 _incoming_desktop=${DESKTOP:-}
 # Reuse common helpers when available.
@@ -301,6 +306,28 @@ netbird_up() {
   fi
 }
 
+qubes_prereqs() {
+  # Ensure minimal tools needed by the rest of the script.
+  local missing=()
+  for c in curl git; do
+    command -v "$c" >/dev/null 2>&1 || missing+=("$c")
+  done
+  if ((${#missing[@]})); then
+    log "Installing missing prerequisites: ${missing[*]}"
+    case "$DISTRO_FAMILY" in
+      apt) run sudo apt-get update >/dev/null 2>&1; run sudo apt-get install -y "${missing[@]}" ;;
+      dnf) run sudo dnf install -y "${missing[@]}" ;;
+      pacman) run sudo pacman -S --needed --noconfirm "${missing[@]}" ;;
+      zypper) run sudo zypper --non-interactive install "${missing[@]}" ;;
+      apk) run sudo apk add "${missing[@]}" ;;
+    esac
+  fi
+  # Ensure sudo exists when not root.
+  if (( EUID != 0 )) && ! command -v sudo >/dev/null 2>&1; then
+    die "sudo is required but not installed"; return 1
+  fi
+}
+
 qubes_env_check() {
   if command -v qubesdb-read >/dev/null 2>&1 || [[ -d /var/lib/qubes ]]; then
     log "Qubes environment detected"
@@ -314,6 +341,7 @@ main() {
   parse_args "$@" || { local s=$?; (( s == 2 )) && return 0; return $s; }
   qubes_env_check
   detect_platform || return 1
+  qubes_prereqs || return 1
   choose_profile || return 1
   log "Profile: $PROFILE"
 

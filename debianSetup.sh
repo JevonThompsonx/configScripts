@@ -157,7 +157,10 @@ done
 header "Installing NetBird"
 sudo apt-get install -y ca-certificates curl gnupg
 sudo install -d -m 0755 /usr/share/keyrings
-curl -sSL https://pkgs.netbird.io/debian/public.key | sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg
+_nb_key=$(mktemp)
+curl -fsSL -o "$_nb_key" https://pkgs.netbird.io/debian/public.key
+sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg "$_nb_key"
+rm -f "$_nb_key"
 echo 'deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main' | sudo tee /etc/apt/sources.list.d/netbird.list
 sudo apt update
 sudo apt install -y netbird

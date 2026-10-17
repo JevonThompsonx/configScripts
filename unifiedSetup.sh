@@ -26,12 +26,13 @@ main() {
   (( parse_status == 2 )) && return 0
   (( parse_status == 0 )) || return "$parse_status"
 
-  if (( EUID == 0 )) && [[ ${SETUP_ALLOW_ROOT_FOR_TESTS:-0} != 1 ]] && (( ! DRY_RUN )); then
+  choose_target || return 1
+
+  if (( EUID == 0 )) && [[ ${SETUP_ALLOW_ROOT_FOR_TESTS:-0} != 1 ]] && (( ! DRY_RUN )) && [[ $TARGET != qubes ]]; then
     die "Run as a regular user. This script invokes sudo only for native packages."
     return 1
   fi
 
-  choose_target || return 1
   if [[ $TARGET == qubes ]]; then
     log "Delegating to Qubes setup..."
     PROFILE= DESKTOP= exec "$SCRIPT_DIR/qubes/qubesSetup.sh" "${ORIGINAL_ARGS[@]}"
@@ -47,6 +48,7 @@ main() {
   fi
 
   if (( ! CONFIGS_ONLY )); then
+    command -v sudo >/dev/null 2>&1 || { die "sudo is required"; return 1; }
     install_profile_packages
     initialize_arch_rust
     install_ai_tools

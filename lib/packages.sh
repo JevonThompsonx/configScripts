@@ -221,14 +221,19 @@ install_capability() {
 ensure_netbird_repo() {
   command -v netbird >/dev/null 2>&1 && return 0
   (( DRY_RUN )) && { log "[dry-run] would ensure NetBird repository"; return 0; }
-  (( NON_INTERACTIVE )) && return 0
-  confirm "Add the official NetBird package repository for $DISTRO_ID?" || return 0
+  # Skip in test mode (overridden os-release) to avoid network access.
+  [[ ${OS_RELEASE_PATH:-/etc/os-release} == /etc/os-release ]] || return 0
+  log "Ensuring official NetBird repository for $DISTRO_ID"
   case "$DISTRO_FAMILY" in
     apt)
       run sudo apt-get install -y ca-certificates curl gnupg || return 1
       run sudo install -d -m 0755 /usr/share/keyrings
       if [[ ! -f /usr/share/keyrings/netbird-archive-keyring.gpg ]]; then
-        run bash -c 'curl -sSL https://pkgs.netbird.io/debian/public.key | sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg' || return 1
+        local key_tmp
+        key_tmp=$(mktemp) || return 1
+        run curl -fsSL -o "$key_tmp" https://pkgs.netbird.io/debian/public.key || { rm -f "$key_tmp"; return 1; }
+        run sudo gpg --dearmor --output /usr/share/keyrings/netbird-archive-keyring.gpg "$key_tmp" || { rm -f "$key_tmp"; return 1; }
+        rm -f "$key_tmp"
       fi
       if [[ ! -f /etc/apt/sources.list.d/netbird.list ]]; then
         run bash -c 'echo "deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main" | sudo tee /etc/apt/sources.list.d/netbird.list' || return 1
@@ -236,6 +241,7 @@ ensure_netbird_repo() {
       run sudo apt-get update || warn "apt-get update failed"
       ;;
     dnf)
+      run sudo dnf install -y curl gnupg2 2>/dev/null || true
       if [[ ! -f /etc/yum.repos.d/netbird.repo ]]; then
         run sudo tee /etc/yum.repos.d/netbird.repo >/dev/null <<'EOF'
 [netbird]
