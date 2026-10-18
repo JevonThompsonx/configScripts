@@ -45,6 +45,7 @@ parse_args() {
         echo "  personal  - zen browser + brave browser"
         echo "  docs      - seafile + libreoffice + obsidian"
         echo "  media     - chromium browser"
+        echo "  dev       - development tools (node, python, go, rust, neovim, ...)"
         return 2 ;;
       --target) shift 2 ;;
       --qubes) shift ;;
@@ -85,16 +86,18 @@ choose_profile() {
     echo "  2) personal  - zen browser + brave browser"
     echo "  3) docs      - seafile + libreoffice + obsidian"
     echo "  4) media     - chromium browser"
-    read -r -p "Select profile [1-4]: " choice
+    echo "  5) dev       - development tools"
+    read -r -p "Select profile [1-5]: " choice
     case "$choice" in
       1|template) PROFILE=template ;;
       2|personal) PROFILE=personal ;;
       3|docs) PROFILE=docs ;;
       4|media) PROFILE=media ;;
+      5|dev) PROFILE=dev ;;
       *) die "Invalid choice"; return 1 ;;
     esac
   fi
-  case "$PROFILE" in template|personal|docs|media) ;; *) die "Invalid profile: $PROFILE"; return 1 ;; esac
+  case "$PROFILE" in template|personal|docs|media|dev) ;; *) die "Invalid profile: $PROFILE"; return 1 ;; esac
 }
 
 # Package names per family for each capability.
@@ -114,6 +117,31 @@ pkg_name() {
     obsidian:pacman) echo obsidian ;;
     obsidian:apt|obsidian:dnf|obsidian:zypper|obsidian:apk) echo "" ;;
     netbird:pacman) echo netbird-bin ;; netbird:apt) echo netbird ;; netbird:dnf) echo netbird ;; netbird:zypper) echo netbird ;; netbird:apk) echo netbird ;;
+    github-cli:pacman) echo github-cli ;; github-cli:apt) echo gh ;; github-cli:dnf) echo gh ;; github-cli:zypper) echo gh ;; github-cli:apk) echo github-cli ;;
+    jq:pacman|jq:apt|jq:dnf|jq:zypper|jq:apk) echo jq ;;
+    ripgrep:pacman|ripgrep:apt|ripgrep:dnf|ripgrep:zypper|ripgrep:apk) echo ripgrep ;;
+    fd:pacman) echo fd ;; fd:apt) echo fd-find ;; fd:dnf) echo fd-find ;; fd:zypper) echo fd ;; fd:apk) echo fd ;;
+    fzf:pacman|fzf:apt|fzf:dnf|fzf:zypper|fzf:apk) echo fzf ;;
+    bat:pacman) echo bat ;; bat:apt) echo bat ;; bat:dnf) echo bat ;; bat:zypper) echo bat ;; bat:apk) echo bat ;;
+    eza:pacman|eza:apt|eza:dnf|eza:zypper|eza:apk) echo eza ;;
+    zoxide:pacman|zoxide:apt|zoxide:dnf|zoxide:zypper|zoxide:apk) echo zoxide ;;
+    neovim:pacman|neovim:apt|neovim:dnf|neovim:zypper|neovim:apk) echo neovim ;;
+    node:pacman) echo nodejs ;; node:apt) echo nodejs ;; node:dnf) echo nodejs ;; node:zypper) echo nodejs ;; node:apk) echo nodejs ;;
+    pnpm:pacman|pnpm:apt|pnpm:dnf|pnpm:zypper|pnpm:apk) echo pnpm ;;
+    python:pacman) echo python ;; python:apt) echo python3 ;; python:dnf) echo python3 ;; python:zypper) echo python3 ;; python:apk) echo python3 ;;
+    go:pacman) echo go ;; go:apt) echo golang-go ;; go:dnf) echo golang ;; go:zypper) echo go ;; go:apk) echo go ;;
+    rust:pacman) echo rustup ;; rust:apt) echo rustc ;; rust:dnf) echo rust ;; rust:zypper) echo rust ;; rust:apk) echo rust ;;
+    mise:pacman) echo mise ;; mise:apt) echo mise ;; mise:dnf) echo mise ;; mise:zypper) echo mise ;; mise:apk) echo mise ;;
+    bun:pacman) echo bun ;; bun:apt|bun:dnf|bun:zypper|bun:apk) echo "" ;;
+    powershell:pacman) echo powershell ;; powershell:apt) echo powershell ;; powershell:dnf) echo powershell ;; powershell:zypper) echo powershell ;; powershell:apk) echo "" ;;
+    wget:pacman|wget:apt|wget:dnf|wget:zypper|wget:apk) echo wget ;;
+    rsync:pacman|rsync:apt|rsync:dnf|rsync:zypper|rsync:apk) echo rsync ;;
+    archives:pacman|archives:apt|archives:dnf|archives:zypper|archives:apk) echo "unzip" ;;
+    atuin:pacman) echo atuin ;; atuin:apt|atuin:dnf|atuin:zypper|atuin:apk) echo "" ;;
+    starship:pacman|starship:apt|starship:dnf|starship:zypper|starship:apk) echo starship ;;
+    tmux:pacman|tmux:apt|tmux:dnf|tmux:zypper|tmux:apk) echo tmux ;;
+    btop:pacman|btop:apt|btop:dnf|btop:zypper|btop:apk) echo btop ;;
+    htop:pacman|htop:apt|htop:dnf|htop:zypper|htop:apk) echo htop ;;
     *) echo "" ;;
   esac
 }
@@ -128,23 +156,48 @@ flatpak_id() {
   esac
 }
 
+aur_name() {
+  case "$1" in
+    bun) echo "bun-bin" ;;
+    powershell) echo "powershell-bin" ;;
+    mise) echo "mise-bin" ;;
+    atuin) echo "atuin" ;;
+    netbird) echo "netbird-bin" ;;
+    brave) echo "brave-bin" ;;
+    zen) echo "zen-browser-bin" ;;
+    obsidian) echo "obsidian" ;;
+    *) echo "" ;;
+  esac
+}
+
+DEV_CAPS="github-cli jq ripgrep fd fzf bat eza zoxide neovim node pnpm python go rust mise bun powershell wget rsync archives atuin starship tmux btop htop"
+
 profile_caps() {
   case "$PROFILE" in
-    template) echo "git curl zen brave chromium seafile libreoffice obsidian netbird" ;;
+    template) echo "git curl zen brave chromium seafile libreoffice obsidian netbird $DEV_CAPS" ;;
     personal) echo "git curl zen brave" ;;
     docs) echo "git curl seafile libreoffice obsidian" ;;
     media) echo "git curl chromium" ;;
+    dev) echo "git curl netbird $DEV_CAPS" ;;
   esac
 }
 
 other_caps() {
   # caps not in this profile but possibly installed by another qube installer/template
+  local base=""
   case "$PROFILE" in
-    personal) echo "chromium seafile libreoffice obsidian" ;;
-    docs) echo "zen brave chromium" ;;
-    media) echo "zen brave seafile libreoffice obsidian" ;;
-    template) echo "" ;;
+    personal) base="chromium seafile libreoffice obsidian" ;;
+    docs) base="zen brave chromium" ;;
+    media) base="zen brave seafile libreoffice obsidian" ;;
+    dev) base="zen brave chromium seafile libreoffice obsidian" ;;
+    template) base="" ;;
   esac
+  # Trim dev tools when this profile is not dev (and not template, which keeps them).
+  if [[ $PROFILE != dev && $PROFILE != template ]]; then
+    base="$base $DEV_CAPS"
+  fi
+  # dev profile trims app tools (already in base above).
+  echo "$base"
 }
 
 install_native() {
@@ -157,10 +210,10 @@ install_native() {
         if pacman -Q "$pkg" >/dev/null 2>&1; then log "$cap already installed"; continue; fi
         if pacman -Si "$pkg" >/dev/null 2>&1; then
           run sudo pacman -S --needed --noconfirm "$pkg" || warn "Failed: $pkg"
-        elif command -v yay >/dev/null 2>&1 && yay -Si "$pkg" >/dev/null 2>&1; then
-          run yay -S --needed --noconfirm "$pkg" || warn "Failed: $pkg"
-        elif command -v paru >/dev/null 2>&1 && paru -Si "$pkg" >/dev/null 2>&1; then
-          run paru -S --needed --noconfirm "$pkg" || warn "Failed: $pkg"
+        elif { _aur=$(aur_name "$cap"); [[ -n $_aur ]] && command -v yay >/dev/null 2>&1 && yay -Si "$_aur" >/dev/null 2>&1; }; then
+          run yay -S --needed --noconfirm "$_aur" || warn "Failed: $_aur"
+        elif { _aur=$(aur_name "$cap"); [[ -n $_aur ]] && command -v paru >/dev/null 2>&1 && paru -Si "$_aur" >/dev/null 2>&1; }; then
+          run paru -S --needed --noconfirm "$_aur" || warn "Failed: $_aur"
         else
           warn "$cap unavailable natively: $pkg"
         fi

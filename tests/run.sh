@@ -706,7 +706,7 @@ run_one 'fleet boot unit has no reboot or secret material' test_fleet_boot_unit_
 
 test_qubes_dry_run() {
   local root=$ROOT q
-  for q in template personal docs media; do
+  for q in template personal docs media dev; do
     bash -n "$root/qubes/qubesSetup.sh" || return 1
     OS_RELEASE_PATH=/etc/os-release HOME=/tmp/qubestest NON_INTERACTIVE=1 DRY_RUN=1 \
       bash "$root/qubes/qubesSetup.sh" --profile "$q" --dry-run >/dev/null 2>&1 || return 1

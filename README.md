@@ -14,6 +14,7 @@ It prompts for a profile, or use `--profile`:
 ./qubesSetup.sh --profile personal   # zen browser + brave browser
 ./qubesSetup.sh --profile docs       # seafile + libreoffice + obsidian
 ./qubesSetup.sh --profile media      # chromium browser
+./qubesSetup.sh --profile dev        # development tools (node, python, go, rust, neovim, ...)
 ```
 
 Wrappers are provided: `personalQubeSetup.sh`, `docsQubeSetup.sh`, `mediaQubeSetup.sh`,
