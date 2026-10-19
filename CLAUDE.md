@@ -104,3 +104,10 @@ is prompted). Running in a non-template qube warns that packages won't persist.
 The distro-specific scripts, `server/`, ClamAV, firewall, uninstall, and power
 management scripts are legacy or specialized standalone tools. Do not invoke
 them from the supported workstation flow. Preserve unrelated changes in them.
+
+## Source Control (Forgejo primary)
+
+Forgejo (`https://forge.jsquaredadventures.com`) is the primary remote; GitHub is a
+mirror. Use remote name `forgejo` for pushes. Fish helpers: `forgeCreate`,
+`forgeAdd`, `forgeCommit -m "..."`, `forgePush`, `forgePull`. Keep both remotes
+in sync after changes.
