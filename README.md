@@ -120,6 +120,12 @@ enabled.
 
 ## Configuration Repositories
 
+The user's own repositories are mirrored: Forgejo is the primary remote and
+GitHub is the mirror. Clones prefer the Forgejo remote and fall back to the
+GitHub mirror when it is unreachable. The clone keeps the mirror URL as a
+`github` remote, and updates are pulled from the primary remote when the clone
+has one.
+
 Public repositories clone over HTTPS without GitHub authentication:
 
 - `JevonThompsonx/nvim` -> `~/.config/nvim`
@@ -136,23 +142,38 @@ Private repositories use `gh repo clone` only after selection and authentication
 
 Destinations must be under `HOME`. Clean matching repos pull with `--ff-only`.
 The current branch must track the expected repository through the `origin`
-remote. Dirty, unpushed, diverged, mismatched, non-origin, or upstream-less repos
+remote; the primary or the mirror URL is accepted for that remote. Dirty,
+unpushed, diverged, mismatched, non-origin, or upstream-less repos
 are preserved and skipped. Existing non-Git paths default to skip; an interactive replacement
 first clones to a sibling path and then moves the original to a timestamped
 backup. User config directories are never recursively deleted.
 
 ## Neovim
 
-The native package is preferred when `nvim` is at least 0.11.2. An older native
-version is retained unless the user explicitly accepts an official release
-install under `~/.local/opt/neovim`. The archive is checked against the matching
-upstream `shasum.txt` SHA256 entry before extraction, and an existing managed
-install is moved to a timestamped backup. Successful downloads remove only their
-exact temporary archive/checksum files and empty temporary directory; failed
-downloads or verification retain their temporary directory for diagnosis.
+The native package is preferred when `nvim` is at least 0.11.2 (the LazyVim v16
+requirement). An older native version is retained unless the user explicitly
+accepts an official release install under `~/.local/opt/neovim`; the default
+release is `v0.11.7` and can be overridden with `NVIM_RELEASE_VERSION`. The
+archive is checked against the matching upstream `shasum.txt` SHA256 entry
+before extraction, and an existing managed install is moved to a timestamped
+backup. Successful downloads remove only their exact temporary
+archive/checksum files and empty temporary directory; failed downloads or
+verification retain their temporary directory for diagnosis.
 
 `JevonThompsonx/nvim` remains the only config source. The setup does not generate
-Lua. Lazy/Mason bootstrap is optional and runs the existing config headlessly.
+Lua. Lazy/Mason bootstrap is optional and runs the existing config headlessly
+through `nvim/bootstrap.lua`, which refreshes the mason registry, installs
+`tree-sitter-cli` synchronously, syncs the lazy.nvim plugins, and waits for
+any mason install that the sync started. That wait matters: the treesitter
+build otherwise starts an install that is still running when Neovim exits and
+mason aborts it ("Neovim is exiting while packages are still installing").
+
+Run the bootstrap by hand with:
+
+```bash
+nvim --headless -c "luafile /path/to/configScripts/nvim/bootstrap.lua" -c "qa!"
+```
+
 
 ## Validation
 

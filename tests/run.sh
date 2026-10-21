@@ -328,6 +328,44 @@ prepare_repo() {
   git -C "$base/work" push -u origin HEAD >/dev/null 2>&1
 }
 
+# The user's own repos are mirrored: Forgejo is primary, GitHub is the mirror.
+# Clones must prefer the primary remote, fall back to the mirror, keep the
+# mirror remote available, and update from the primary when it exists.
+test_primary_remote_clone() {
+  local base=$HOME/mirrored primary mirror destination branch
+  mkdir -p "$base"
+  prepare_repo "$base"
+  primary="$base/remote.git"
+  mirror="https://github.com/example/config.git"
+  destination="$HOME/configs/config"
+  mkdir -p "$HOME/configs"
+
+  url_matches_any "$primary" "$primary" || return 1
+  ! url_matches_any "$mirror" "$primary" || return 1
+  url_matches_any "git@forgejo:zLeafNinja/nvim.git" "git@forgejo:zLeafNinja/nvim.git" || return 1
+  ! url_matches_any "https://github.com/JevonThompsonx/nvim.git" "git@forgejo:zLeafNinja/nvim.git" || return 1
+
+  manage_repo "$mirror" "$destination" public 0 "$primary" >/dev/null || return 1
+  [[ -d $destination/.git ]] || return 1
+  [[ $(git -C "$destination" remote get-url origin) == "$primary" ]] || return 1
+  [[ $(git -C "$destination" remote get-url github) == "$mirror" ]] || return 1
+
+  # An existing clone that tracks the mirror is still safe to update.
+  branch=$(git -C "$destination" branch --show-current) || return 1
+  [[ -n $branch ]] || return 1
+  repo_is_safe_to_update "$destination" "$mirror $primary" || return 1
+
+  # A clone whose origin is neither remote is never touched.
+  git -C "$destination" remote set-url origin "$base/other.git"
+  ! repo_is_safe_to_update "$destination" "$mirror $primary" || return 1
+
+  # The fallback is used when the primary is unreachable.
+  local fallback_destination="$HOME/configs/fallback"
+  manage_repo "$base/remote.git" "$fallback_destination" public 0 "$base/missing.git" >/dev/null 2>&1 || return 1
+  [[ -d $fallback_destination/.git ]] || return 1
+  [[ $(git -C "$fallback_destination" remote get-url origin) == "$base/remote.git" ]] || return 1
+}
+
 test_clone_states() {
   local base=$HOME/repos branch diverge_branch
   mkdir -p "$base"; prepare_repo "$base"
@@ -682,6 +720,7 @@ run_one 'non-interactive mode performs no risky actions' test_noninteractive_ris
 run_one 'selected services use correct system and user scopes' test_service_scopes_and_units
 run_one 'absent service units are never enabled' test_absent_service_units_are_not_started
 run_one 'safe clean, dirty, non-git, and outside-HOME clone states' test_clone_states
+run_one 'primary remote is preferred and the mirror is kept' test_primary_remote_clone
 run_one 'private authentication is gated' test_private_auth_gate
 run_one 'Omarchy conflicts are skipped non-interactively' test_omarchy_conflict_skip
 run_one 'desktop package selection is isolated' test_desktop_selection

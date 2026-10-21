@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# LazyVim v16 (the version the nvim config tracks) requires Neovim >= 0.11.2.
+NVIM_MIN_VERSION=${NVIM_MIN_VERSION:-0.11.2}
+# Version installed when the native Neovim is too old or missing.
+NVIM_RELEASE_VERSION=${NVIM_RELEASE_VERSION:-v0.11.7}
+NVIM_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NVIM_BOOTSTRAP_LUA="$NVIM_LIB_DIR/../nvim/bootstrap.lua"
+
 version_at_least() {
   local actual=${1#v} required=${2#v} first
   first=$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n 1)
@@ -12,7 +19,7 @@ nvim_version() {
 }
 
 install_official_neovim() {
-  local version=${NVIM_RELEASE_VERSION:-v0.11.2} machine asset base temp sums archive extracted install backup
+  local version=$NVIM_RELEASE_VERSION machine asset base temp sums archive extracted install backup
   local hash filename extra matches=0
   machine=$(uname -m)
   case "$machine" in
@@ -67,19 +74,19 @@ install_official_neovim() {
 ensure_neovim() {
   local version
   version=$(nvim_version 2>/dev/null || true)
-  if [[ -n $version ]] && version_at_least "$version" 0.11.2; then
-    log "Neovim $version meets the >=0.11.2 requirement"
+  if [[ -n $version ]] && version_at_least "$version" "$NVIM_MIN_VERSION"; then
+    log "Neovim $version meets the >=$NVIM_MIN_VERSION requirement"
     return 0
   fi
   if [[ -n $version ]]; then
-    warn "Native Neovim $version is older than 0.11.2"
+    warn "Native Neovim $version is older than $NVIM_MIN_VERSION"
   else
     warn "Neovim is not currently on PATH"
   fi
-  if confirm "Install checksum-verified official Neovim ${NVIM_RELEASE_VERSION:-v0.11.2} under ~/.local?"; then
+  if confirm "Install checksum-verified official Neovim $NVIM_RELEASE_VERSION under ~/.local?"; then
     install_official_neovim || { warn "Official Neovim installation failed"; ((FAILURES++)); }
   else
-    warn "Keeping the native Neovim path; plugin bootstrap may require >=0.11.2"
+    warn "Keeping the native Neovim path; plugin bootstrap may require >=$NVIM_MIN_VERSION"
   fi
 }
 
@@ -87,6 +94,12 @@ offer_plugin_sync() {
   [[ -d $HOME/.config/nvim ]] || return 0
   command -v nvim >/dev/null 2>&1 || return 0
   if confirm "Run the existing Neovim config's Lazy and Mason bootstrap now?"; then
-    run nvim --headless '+Lazy! sync' '+MasonUpdate' '+qa' || warn "Neovim plugin/Mason sync did not complete"
+    if [[ -f $NVIM_BOOTSTRAP_LUA ]]; then
+      # The bootstrap keeps the mason installs in flight until they finish, so
+      # Neovim does not exit with packages still installing.
+      run nvim --headless -c "luafile $NVIM_BOOTSTRAP_LUA" -c "qa!" || warn "Neovim plugin/Mason sync did not complete"
+    else
+      run nvim --headless '+Lazy! sync' '+MasonUpdate' '+qa' || warn "Neovim plugin/Mason sync did not complete"
+    fi
   fi
 }

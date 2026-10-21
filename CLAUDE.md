@@ -8,9 +8,11 @@ libraries:
 - `lib/common.sh`: CLI, prompts, distro/desktop detection, and risky-action gates.
 - `lib/packages.sh`: capability manifest, native -> AUR -> Flatpak fallback,
   optional AI npm tools, Debian aliases, and Arch rustup initialization.
-- `lib/configs.sh`: public/private auth rules and non-destructive Git handling.
+- `lib/configs.sh`: public/private auth rules, non-destructive Git handling, and
+  primary/mirror remote handling (Forgejo primary, GitHub mirror).
 - `lib/desktop.sh`: validated wallpaper selection and opt-in user timer/backends.
 - `lib/neovim.sh`: Neovim 0.11.2 check, verified official fallback, optional sync.
+- `nvim/bootstrap.lua`: headless Lazy/Mason bootstrap for the nvim config.
 
 All libraries must remain safe to source. Keep the main guard in
 `unifiedSetup.sh`. `cloneConfigs.sh` is only a wrapper for `--configs-only`.
@@ -26,8 +28,10 @@ All libraries must remain safe to source. Keep the main guard in
 - Never recursively delete a user config, app profile, theme, or managed install.
 - Config clone destinations must be under `HOME`; clone to a temporary sibling
   before moving an existing path to a timestamped backup.
-- Public configs use Git HTTPS. Private configs use `gh` only after explicit
-  selection and confirmed authentication. Never print auth output or tokens.
+- Public configs clone from the primary remote (Forgejo) and fall back to the
+  GitHub mirror; the mirror stays available as the `github` remote. Private
+  configs use `gh` only after explicit selection and confirmed authentication.
+  Never print auth output or tokens.
 - Do not add third-party distro repositories, bootstrap an AUR helper, use
   curl-pipe-shell, change firewall/storage/power/SELinux settings, or reboot.
 - Flatpak is user-scoped and is only a fallback after native and existing Arch
@@ -41,6 +45,9 @@ All libraries must remain safe to source. Keep the main guard in
   separately confirmed user service. Verify units exist before enabling them.
 - `JevonThompsonx/nvim` is the config source of truth. Do not generate Lua or
   clone a starter over it.
+- The nvim config tracks LazyVim v16, which needs Neovim >= 0.11.2. The
+  bootstrap in `nvim/bootstrap.lua` must wait for in-flight mason installs so
+  Neovim does not exit with packages still installing.
 
 ## Package Manifest
 
