@@ -34,7 +34,7 @@ Options:
   --dry-run                      Print actions without changing the system
   --non-interactive              Never prompt; use safe defaults
   --profile core|workstation|full
-  --desktop auto|hyprland|sway|niri|gnome|none
+  --desktop auto|hyprland|sway|niri|gnome|cosmic|none
   --configs-only                 Only manage selected configuration repos
   --skip-configs                 Do not manage configuration repos
   --private-configs              Opt into private repos (requires existing auth
@@ -80,7 +80,7 @@ parse_args() {
   case "$TARGET" in auto|baremetal|qubes) ;; *) die "Invalid target: $TARGET"; return 1 ;; esac
   if [[ $TARGET != qubes ]]; then
     case "$PROFILE" in core|workstation|full) ;; *) die "Invalid profile: $PROFILE"; return 1 ;; esac
-    case "$DESKTOP" in auto|hyprland|sway|niri|gnome|none) ;; *) die "Invalid desktop: $DESKTOP"; return 1 ;; esac
+    case "$DESKTOP" in auto|hyprland|sway|niri|gnome|cosmic|none) ;; *) die "Invalid desktop: $DESKTOP"; return 1 ;; esac
   fi
   if (( CONFIGS_ONLY && SKIP_CONFIGS )); then
     die "--configs-only and --skip-configs cannot be combined"
@@ -129,6 +129,8 @@ resolve_desktop() {
     DESKTOP=sway
   elif [[ ${XDG_CURRENT_DESKTOP:-} == *[Nn][Ii][Rr][Ii]* ]]; then
     DESKTOP=niri
+  elif [[ ${XDG_CURRENT_DESKTOP:-} == *[Cc][Oo][Ss][Mm][Ii][Cc]* ]] || [[ -n ${COSMIC_PANEL_RUNNING:-} ]] || command -v cosmic-comp >/dev/null 2>&1; then
+    DESKTOP=cosmic
   elif [[ ${XDG_CURRENT_DESKTOP:-} == *[Gg][Nn][Oo][Mm][Ee]* ]]; then
     DESKTOP=gnome
   else
@@ -166,7 +168,7 @@ choose_interactive_options() {
     PROFILE=$(choose_value "Profile (core/workstation/full)" workstation "core workstation full") || return 1
   fi
   if (( ! DESKTOP_EXPLICIT )); then
-    DESKTOP=$(choose_value "Desktop (hyprland/sway/niri/gnome/none)" "$DESKTOP" "hyprland sway niri gnome none") || return 1
+    DESKTOP=$(choose_value "Desktop (hyprland/sway/niri/gnome/cosmic/none)" "$DESKTOP" "hyprland sway niri gnome cosmic none") || return 1
   fi
   if (( ! CONFIGS_ONLY && ! AI_TOOLS_EXPLICIT )) && confirm "Install optional OpenCode, Claude, Codex, Copilot, and Pi CLIs?"; then
     AI_TOOLS=1

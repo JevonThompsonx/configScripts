@@ -93,7 +93,7 @@ configuration changes. A failed package does not block the remaining tools.
 
 ## Desktop Safety
 
-Use `--desktop hyprland`, `sway`, `niri`, `gnome`, or `none`; `auto` only detects the
+Use `--desktop hyprland`, `sway`, `niri`, `gnome`, `cosmic`, or `none`; `auto` only detects the
 current session and never replaces it. Hyprland, Sway, and Niri select `wl-clipboard`.
 GNOME selects `wl-clipboard` in a Wayland session and `xclip`/`xsel` for X11 or
 unknown-session fallback. Niri installs the compositor package on Arch-family
@@ -109,7 +109,7 @@ is found in `~/Pictures/WPs`. If rotation is selected but the desktop backend is
 unavailable, setup reports a clear failure. The selector passes a randomly
 selected image to `omarchy-theme-bg-set` on Omarchy. Generic
 Hyprland installs and explicitly enables a user `hyprpaper` backend with the
-timer; Sway uses `swaymsg`, and GNOME uses `gsettings`. The timer runs every 30
+timer; Sway uses `swaymsg`, GNOME uses `gsettings`, and COSMIC manages its own wallpaper (rotation skipped). The timer runs every 30
 minutes. Omarchy never starts the generic Hyprpaper service.
 
 Service activation is separate from package installation and always defaults to

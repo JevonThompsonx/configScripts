@@ -25,6 +25,7 @@ wallpaper_backend_available() {
       fi ;;
     sway) command -v swaymsg >/dev/null 2>&1 || { warn "Sway rotation requires swaymsg"; return 1; } ;;
     niri) warn "Wallpaper rotation is unsupported on niri"; return 1 ;;
+    cosmic) warn "Wallpaper rotation is managed by COSMIC settings; skipping"; return 1 ;;
     gnome) command -v gsettings >/dev/null 2>&1 || { warn "GNOME rotation requires gsettings"; return 1; } ;;
     *) return 1 ;;
   esac

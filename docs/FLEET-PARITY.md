@@ -77,3 +77,29 @@ physical presence that must never be stored in this repo.
   `niri validate` (exit 0) after edits. Back up before merging.
 - Launcher/search aliases: `Mod+D` / `Mod+Space` spawning the launcher of
   choice (e.g. `noctalia msg panel-toggle launcher`).
+
+## COSMIC notes (System76 desktop environment)
+
+- `--desktop cosmic` is supported on Arch/CachyOS (and other families where the
+  `cosmic` meta package is available). COSMIC is a Wayland compositor, so it
+  inherits the `desktop-wayland` group (Wayland clipboard tools).
+- COSMIC packages installed: `cosmic-desktop` (meta), `cosmic-comp`,
+  `cosmic-settings`, `cosmic-files`, `cosmic-term`, `cosmic-edit`,
+  `cosmic-greeter`. No third-party repos are added; on distros where these are
+  unavailable the package manager reports them missing and the setup continues.
+- COSMIC manages its own wallpaper through `cosmic-settings` / the compositor's
+  background service (`com.system76.CosmicBg`). The configScripts wallpaper
+  rotation timer is therefore **disabled** on COSMIC (warns and skips) — set
+  wallpapers via COSMIC settings or by editing
+  `~/.config/cosmic/com.system76.CosmicBg/` directly.
+- COSMIC does not use waybar/wofi (those are hyprland/sway only). Its panel,
+  applets, and launcher are built into the compositor.
+- Config files live under `~/.config/cosmic/` and `~/.config/com.system76.*`.
+  Back up this directory before applying any external config.
+- Keybinds and compositor settings are managed by COSMIC settings GUI or via
+  the `cosmic-comp` config; validate by launching `cosmic-comp --version` or
+  checking `systemctl --user status cosmic-session` after changes.
+- On MacBookPro14,3 (Intel T1): COSMIC runs on the Intel Iris Plus 640/650
+  via the standard `i915` driver. No special GPU config needed beyond the
+  standard Arch/CachyOS kernel. Touch Bar and keyboard backlight fixes from
+  the MacBook notes above still apply.

@@ -47,6 +47,13 @@ desktop-sway|waybar|waybar|waybar|waybar|waybar|waybar|waybar||
 desktop-sway|wofi|wofi|wofi|wofi|wofi|wofi|wofi||
 desktop-gnome|gnome-shell|gnome-shell|gnome-shell|gnome-shell|gnome-shell|gnome-shell|gnome||
 desktop-niri|niri|niri|niri||||||
+desktop-cosmic|cosmic-desktop|cosmic|cosmic||||||
+desktop-cosmic|cosmic-comp|cosmic-comp||||||
+desktop-cosmic|cosmic-settings|cosmic-settings||||||
+desktop-cosmic|cosmic-files|cosmic-files||||||
+desktop-cosmic|cosmic-term|cosmic-term||||||
+desktop-cosmic|cosmic-edit|cosmic-edit||||||
+desktop-cosmic|cosmic-greeter|cosmic-greeter||||||
 workstation|brave-browser|brave-browser||||||brave-bin|com.brave.Browser
 workstation|chromium|chromium|chromium|chromium|chromium|chromium|chromium||org.chromium.Chromium
 workstation|bitwarden|bitwarden||||||bitwarden|com.bitwarden.desktop
@@ -90,7 +97,7 @@ group_selected() {
     core) return 0 ;;
     workstation) [[ $PROFILE == workstation || $PROFILE == full ]] ;;
     full) [[ $PROFILE == full ]] ;;
-    desktop-wayland) [[ $PROFILE != core && ( $DESKTOP == hyprland || $DESKTOP == sway || $DESKTOP == niri || ( $DESKTOP == gnome && ${XDG_SESSION_TYPE:-} == wayland ) ) ]] ;;
+    desktop-wayland) [[ $PROFILE != core && ( $DESKTOP == hyprland || $DESKTOP == sway || $DESKTOP == niri || $DESKTOP == cosmic || ( $DESKTOP == gnome && ${XDG_SESSION_TYPE:-} == wayland ) ) ]] ;;
     desktop-x11) [[ $PROFILE != core && $DESKTOP == gnome && ${XDG_SESSION_TYPE:-} != wayland ]] ;;
     desktop-*) [[ $PROFILE != core && $1 == desktop-$DESKTOP ]] ;;
     *) return 1 ;;
