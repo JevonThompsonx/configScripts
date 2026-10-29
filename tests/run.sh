@@ -698,6 +698,128 @@ test_fleet_boot_unit_has_no_reboot_or_secrets() {
   grep -q 'WantedBy=multi-user.target' lib/fleet.sh || return 1
 }
 
+mock_apple_touchbar_env() {
+  local dmi=$HOME/dmi leds=$HOME/leds mods=$HOME/modules usb=$HOME/usb-ids
+  mkdir -p "$dmi" "$leds" "$mods"
+  printf 'Apple Inc.\n' >"$dmi/sys_vendor"
+  mkdir -p "$leds/spi::kbd_backlight"
+  : >"$usb"
+  MACBOOK_DMI_BASE=$dmi; MACBOOK_LEDS_BASE=$leds; MACBOOK_MODULE_BASE=$mods; MACBOOK_USB_IDS_FILE=$usb
+  DRY_RUN=0; NON_INTERACTIVE=0; FAILURES=0; DESKTOP=cosmic
+}
+
+test_apple_touchbar_detection() {
+  local dmi=$HOME/dmi leds=$HOME/leds mods=$HOME/modules usb=$HOME/usb-ids
+  mkdir -p "$dmi" "$leds" "$mods"
+  printf 'Apple Inc.\n' >"$dmi/sys_vendor"
+  : >"$usb"
+  MACBOOK_DMI_BASE=$dmi; MACBOOK_LEDS_BASE=$leds; MACBOOK_MODULE_BASE=$mods; MACBOOK_USB_IDS_FILE=$usb
+  # Apple without any Touch Bar indicator is not a Touch Bar Mac.
+  ! is_apple_touchbar_mac || return 1
+  mkdir -p "$leds/spi::kbd_backlight"
+  is_apple_touchbar_mac || return 1
+  [[ $(macbook_kbd_backlight_device) == spi::kbd_backlight ]] || return 1
+  rm -rf "$leds/spi::kbd_backlight"
+  mkdir -p "$leds/smc::kbd_backlight"
+  is_apple_touchbar_mac || return 1
+  rm -rf "$leds/smc::kbd_backlight"
+  mkdir -p "$mods/apple_touchbar"
+  is_apple_touchbar_mac || return 1
+  rm -rf "$mods/apple_touchbar"
+  printf 'Bus 001 Device 002: ID 05ac:8600 Apple, Inc. iBridge\n' >"$usb"
+  is_apple_touchbar_mac || return 1
+  printf 'LENOVO\n' >"$dmi/sys_vendor"
+  mkdir -p "$leds/spi::kbd_backlight"
+  ! is_apple_touchbar_mac || return 1
+}
+
+test_macbook_udev_rule_content() {
+  local content
+  content=$(macbook_touchbar_udev_rule_content)
+  [[ $content == *'# Managed by configScripts macbook-touchbar'* ]] || return 1
+  [[ $content == *'KERNEL=="spi::kbd_backlight"'* ]] || return 1
+  [[ $content == *'KERNEL=="smc::kbd_backlight"'* ]] || return 1
+  [[ $content == *'GROUP="video", MODE="0664"'* ]] || return 1
+}
+
+test_macbook_packages_and_dry_run() {
+  local log_file=$HOME/log
+  mock_apple_touchbar_env
+  DISTRO_FAMILY=pacman
+  command() {
+    [[ ${1:-} == -v && ${2:-} == brightnessctl ]] && return 1
+    builtin command "$@"
+  }
+  install_capability() { printf '%s %s\n' "$1" "$3" >>"$TEST_LOG"; }
+  TEST_LOG=$log_file; export TEST_LOG
+  ensure_macbook_touchbar_packages >/dev/null || return 1
+  assert_file_contains "$log_file" 'keyboard-backlight' || return 1
+  assert_file_contains "$log_file" 'brightnessctl' || return 1
+  # Non-Apple hardware skips without calling the installer.
+  printf 'Dell Inc.\n' >"$HOME/dmi/sys_vendor"
+  rm -rf "$HOME/leds/spi::kbd_backlight"
+  : >"$log_file"
+  ensure_macbook_touchbar_packages >/dev/null || return 1
+  [[ ! -s $log_file ]] || return 1
+  # Dry-run mutates nothing.
+  mock_apple_touchbar_env
+  DRY_RUN=1
+  local before after
+  before=$(ls -A "$HOME")
+  setup_macbook_touchbar >/dev/null 2>&1
+  after=$(ls -A "$HOME")
+  assert_eq "$after" "$before" || return 1
+}
+
+test_macbook_helpers_and_cosmic_shortcuts() {
+  mock_apple_touchbar_env
+  write_kbd_backlight_helpers || return 1
+  local up=$HOME/.local/bin/kbd-backlight-up down=$HOME/.local/bin/kbd-backlight-down
+  [[ -x $up && -x $down ]] || return 1
+  assert_file_contains "$up" 'Managed by configScripts macbook-touchbar' || return 1
+  assert_file_contains "$up" 'UPower.KbdBacklight' || return 1
+  assert_file_contains "$down" 'CUR - STEP' || return 1
+  bash -n "$up" && bash -n "$down" || return 1
+  # Idempotent second run.
+  write_kbd_backlight_helpers >/dev/null || return 1
+  # Existing non-managed helper is preserved.
+  printf '#!/bin/bash\ncustom\n' >"$up"
+  ! write_kbd_backlight_helpers >/dev/null 2>&1 || return 1
+  assert_eq "$(<"$up")" '#!/bin/bash
+custom' || return 1
+  # Restore managed helper for shortcut tests.
+  mock_apple_touchbar_env
+  rm -f "$up"
+  write_kbd_backlight_helpers >/dev/null || return 1
+  # Fresh COSMIC custom file.
+  XDG_CONFIG_HOME=$HOME/.config; export XDG_CONFIG_HOME
+  ensure_cosmic_kbd_backlight_shortcuts cosmic || return 1
+  local custom=$HOME/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom
+  assert_file_contains "$custom" 'XF86KbdBrightnessUp' || return 1
+  assert_file_contains "$custom" 'XF86KbdBrightnessDown' || return 1
+  assert_file_contains "$custom" 'kbd-backlight-up' || return 1
+  assert_file_contains "$custom" "$HOME/.local/bin/kbd-backlight-up" || return 1
+  ! grep -q 'PLACEHOLDER' "$custom" || return 1
+  # Idempotent second run.
+  ensure_cosmic_kbd_backlight_shortcuts cosmic >/dev/null || return 1
+  # Merge into an existing file with other bindings.
+  printf '{\n    (modifiers: [ Super ], key: "t"): Spawn("cosmic-term"),\n}\n' >"$custom"
+  confirm() { return 0; }
+  ensure_cosmic_kbd_backlight_shortcuts cosmic >/dev/null || return 1
+  assert_file_contains "$custom" 'cosmic-term' || return 1
+  assert_file_contains "$custom" 'XF86KbdBrightnessUp' || return 1
+  assert_file_contains "$custom" 'XF86KbdBrightnessDown' || return 1
+  # Non-COSMIC desktops skip shortcut management.
+  rm -f "$custom"
+  DESKTOP=gnome
+  command() {
+    [[ ${1:-} == -v && ${2:-} == cosmic-comp ]] && return 1
+    builtin command "$@"
+  }
+  ensure_cosmic_kbd_backlight_shortcuts >/dev/null || return 1
+  [[ ! -e $custom ]] || return 1
+}
+
 run_one() {
   local name=$1 fn=$2 temp
   temp=$(mktemp -d)
@@ -741,6 +863,10 @@ run_one 'fleet hook templates render valid shell' test_fleet_hook_templates
 run_one 'fleet privileged steps are skipped non-interactive' test_fleet_noninteractive_skips_root
 run_one 'fleet dry-run mutates nothing and logs staged steps' test_fleet_dry_run_mutates_nothing
 run_one 'fleet boot unit has no reboot or secret material' test_fleet_boot_unit_has_no_reboot_or_secrets
+run_one 'Apple Touch Bar detection covers vendor and indicators' test_apple_touchbar_detection
+run_one 'Apple udev rule covers both backlight devices' test_macbook_udev_rule_content
+run_one 'Apple packages skip non-Mac and dry-run mutates nothing' test_macbook_packages_and_dry_run
+run_one 'Apple helpers and COSMIC shortcuts merge idempotently' test_macbook_helpers_and_cosmic_shortcuts
 
 
 test_qubes_dry_run() {

@@ -12,6 +12,9 @@ libraries:
   primary/mirror remote handling (Forgejo primary, GitHub mirror).
 - `lib/desktop.sh`: validated wallpaper selection and opt-in user timer/backends.
 - `lib/neovim.sh`: Neovim 0.11.2 check, verified official fallback, optional sync.
+- `lib/macbook-touchbar.sh`: Apple Touch Bar detection (vendor Apple +
+  `spi::`/`smc::` LED, module, or iBridge USB) with `brightnessctl`, udev,
+  UPower helpers, and COSMIC `XF86KbdBrightness` shortcuts.
 - `nvim/bootstrap.lua`: headless Lazy/Mason bootstrap for the nvim config.
 
 All libraries must remain safe to source. Keep the main guard in

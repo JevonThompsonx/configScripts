@@ -19,6 +19,8 @@ source "$SCRIPT_DIR/lib/desktop.sh"
 source "$SCRIPT_DIR/lib/neovim.sh"
 # shellcheck source=lib/fleet.sh
 source "$SCRIPT_DIR/lib/fleet.sh"
+# shellcheck source=lib/macbook-touchbar.sh
+source "$SCRIPT_DIR/lib/macbook-touchbar.sh"
 
 main() {
   local parse_status=0
@@ -50,6 +52,7 @@ main() {
   if (( ! CONFIGS_ONLY )); then
     command -v sudo >/dev/null 2>&1 || { die "sudo is required"; return 1; }
     install_profile_packages
+    ensure_macbook_touchbar_packages || ((FAILURES++))
     initialize_arch_rust
     install_ai_tools
     ensure_neovim
@@ -61,6 +64,7 @@ main() {
     setup_selected_configs
     offer_plugin_sync
     setup_wallpaper_rotation
+    setup_macbook_touchbar
   fi
 
   log "Setup completed with $FAILURES optional failure(s)."

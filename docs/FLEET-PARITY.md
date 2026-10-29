@@ -57,10 +57,20 @@ physical presence that must never be stored in this repo.
 - Touch Bar: `apple-ib-drv` (DKMS) exposes the bar; with no host renderer the
   T1 firmware shows its default strip and Fn toggles F-keys natively. There is
   no per-app strip support on Linux — the row is static.
-- Keyboard backlight lives at `/sys/class/leds/spi::kbd_backlight` (not
-  `smc::`). Grant group write via a udev rule and bind
-  `XF86KbdBrightnessUp/Down` in the compositor to
-  `brightnessctl -d spi::kbd_backlight set ±10%`.
+- Keyboard backlight lives at `/sys/class/leds/spi::kbd_backlight` (T1) or
+  `smc::kbd_backlight` (newer). `unifiedSetup.sh` automates this when Apple
+  hardware with a Touch Bar is detected (vendor Apple + `spi::`/`smc::` LED,
+  `apple_touchbar`/`apple-ibridge` module, or iBridge USB `05ac:8600`):
+  installs `brightnessctl`, writes
+  `/etc/udev/rules.d/90-apple-kbd-backlight.rules` (`video:rw` for both
+  devices, root-confirmed, skipped non-interactive), installs
+  `~/.local/bin/kbd-backlight-up/down` UPower helpers (no root needed), and
+  on COSMIC merges `XF86KbdBrightnessUp/Down` into
+  `~/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom`
+  (upstream bug pop-os/cosmic-epoch#2925; GNOME/KDE need no mapping).
+  See `lib/macbook-touchbar.sh` (`MACBOOK_DMI_BASE`, `MACBOOK_LEDS_BASE`,
+  `MACBOOK_MODULE_BASE`, `MACBOOK_USB_IDS_FILE`, `MACBOOK_UDEV_RULE_PATH`
+  overrides for tests).
 - FaceTime camera appears only when the iBridge USB config is forced; no
   driver action needed beyond the udev rule.
 - Charge-threshold sysfs does not exist on Apple SMC — there is nothing to set.
